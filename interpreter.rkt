@@ -6,6 +6,11 @@
   (lambda (expression) (car expression)))
 (define leftoperand cadr)
 (define rightoperand caddr)
+(define name-list car)
+(define val-list cadr)
+(define cdr-state
+  (lambda (state)
+    (cons (cdr (name-list state)) (list (cdr (val-list state))))))
 
 (define M_boolean
   (lambda (condition state)
@@ -51,4 +56,18 @@
       [(eq? (operator stmt) 'if) state]
       [(eq? (operator stmt) 'while) state]
       [else (error 'stmt-not-defined)])))
+
+(define remove-cps
+  (lambda (var state return)
+    (cond
+     [(null? (name-list state)) (return state)]
+     [(eq? (car (name-list state)) var) (return (cdr-state state))]
+     [else (remove-cps var (cdr-state state)
+                       (lambda (v) (cons (cons (car (name-list state)) (name-list v)) (list (cons (car (val-list state)) (val-list v))))))])))
+
+(define remove
+  (lambda (var state)
+    (remove-cps var state (lambda (v) v))))
+
+
 
