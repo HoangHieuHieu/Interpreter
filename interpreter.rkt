@@ -38,4 +38,8 @@
       ((null? (car state)) 'null)
       ((eq? var (car (car state))) (caadr state))
       (else (getVar var (cons (cdar state) (cons (cdadr state) '())))))))
+
+(define assign
+  (lambda (stmt state)
+    add((leftoperand stmt), (M_value (rightoperand stmt)), (remove (leftoperand stmt) state))))
     
