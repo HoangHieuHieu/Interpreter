@@ -1,5 +1,7 @@
+(define haha
+    (lambda (a)
+        0))
 
-define 
 
 (define M_boolean
   (lambda (condition state)
@@ -13,12 +15,3 @@ define
       ((eq? (car condition) '<) (< (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state)))
       ((eq? (car condition) '>) (> (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state)))
       ((eq? (car condition) '=) (= (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state))))))
-
-(define M_state
-  (lambda (stmt state)
-    (cond
-      [(eq? (operator stmt) 'var) state]
-      [(eq? (operator stmt) '=) state]
-      [(eq? (operator stmt) 'if) state]
-      [(eq? (operator stmt) 'while) state]
-      [else 'error])))
