@@ -1,4 +1,12 @@
+
 #lang racket
+
+
+(define operator
+  (lambda (expression) (car expression)))
+(define leftoperand cadr)
+(define rightoperand caddr)
+
 (define M_boolean
   (lambda (condition state)
     (cond
@@ -12,10 +20,6 @@
       ((eq? (car condition) '>) (> (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state)))
       ((eq? (car condition) '=) (= (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state))))))
 
-(define operator
-  (lambda (expression) (car expression)))
-(define leftoperand cadr)
-(define rightoperand caddr)
 
 (define M_value
   (lambda (expression state)
@@ -39,3 +43,12 @@
       ((eq? var (car (car state))) (caadr state))
       (else (getVar var (cons (cdar state) (cons (cdadr state) '())))))))
     
+(define M_state
+  (lambda (stmt state)
+    (cond
+      [(eq? (operator stmt) 'var) state]
+      [(eq? (operator stmt) '=) state]
+      [(eq? (operator stmt) 'if) state]
+      [(eq? (operator stmt) 'while) state]
+      [else (error 'stmt-not-defined)])))
+
