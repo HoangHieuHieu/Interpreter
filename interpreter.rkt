@@ -1,8 +1,4 @@
-(define haha
-    (lambda (a)
-        0))
-
-
+#lang racket
 (define M_boolean
   (lambda (condition state)
     (cond
@@ -15,3 +11,31 @@
       ((eq? (car condition) '<) (< (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state)))
       ((eq? (car condition) '>) (> (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state)))
       ((eq? (car condition) '=) (= (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state))))))
+
+(define operator
+  (lambda (expression) (car expression)))
+(define leftoperand cadr)
+(define rightoperand caddr)
+
+(define M_value
+  (lambda (expression state)
+    (cond
+      ((null? expression) 0)
+      ((number? expression) expression)
+      ((and (not (number? expression)) (not (list? expression))) (getVar expression state))
+      ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (leftoperand expression)))
+      ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (leftoperand expression)))
+      ((eq? (operator expression) '+) (+ (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '-) (- (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '*) (* (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '/) (quotient (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '%) (remainder (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      (else (error 'bad-operator)))))
+
+(define getVar
+  (lambda (var state)
+    (cond
+      ((null? (car state)) 'null)
+      ((eq? var (car (car state))) (caadr state))
+      (else (getVar var (cons (cdar state) (cons (cdadr state) '())))))))
+    
