@@ -52,3 +52,9 @@
       [(eq? (operator stmt) 'while) state]
       [else (error 'stmt-not-defined)])))
 
+
+(define assign
+  (lambda (stmt state)
+    add((leftoperand stmt), (M_value (rightoperand stmt)), (remove (leftoperand stmt) state))))
+    
+
