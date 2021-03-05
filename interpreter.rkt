@@ -84,4 +84,9 @@
       (add (leftoperand stmt) 'null (remove (leftoperand stmt) state))
       (add (leftoperand stmt) (rightoperand stmt) (remove (leftoperand stmt) state))))))
 
-
+;; while: perform a while statement
+(define while
+  (lambda(con body state)
+    (if (M_boolean con)
+      (while con body (M_state body state))
+      state)))
