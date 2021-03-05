@@ -1,13 +1,14 @@
 
 #lang racket
 
-
+;; abstractions
 (define operator
   (lambda (expression) (car expression)))
 (define leftoperand cadr)
 (define rightoperand caddr)
 (define name-list car)
 (define val-list cadr)
+;; cdr-state: take a state return that state without its first binding 
 (define cdr-state
   (lambda (state)
     (cons (cdr (name-list state)) (list (cdr (val-list state))))))
