@@ -34,6 +34,16 @@
       ((eq? (car condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
       (else (error 'boolean)))))
 
+
+(define add
+  (lambda (var value state)
+    (cond
+      ((null? (name-list state))    (cons (cons (name-list state) var) (cons (val-list state) value)))
+      ((eq? (car (name-list state)) var)  (add var value (remove (var state))))  
+      ; still not find the var yet
+      (else (add var value (cons (cdr (name-list state) (cdr (val-list state)))))))))
+
+
 (define M_value
   (lambda (expression state)
     (cond
@@ -85,12 +95,4 @@
     (remove-cps var state (lambda (v) v))))
 
 
-(defind isAssigned)
 
-(define add
-  (lambda (var value state)
-    (cond
-      ((null? (name-list state))    (cons (cons (name-list state) var) (cons (val-list state) value)))
-      ((eq? (car (name-list state)) var)  (add var value (remove (var state))))  
-      ; still not find the var yet
-      (else (add var value (cons (cdr (name-list state) (cdr (val-list state)))))))))
