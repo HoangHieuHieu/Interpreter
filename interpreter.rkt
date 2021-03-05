@@ -1,7 +1,7 @@
 
 #lang racket
 
-
+;; abstractions
 (define operator
   (lambda (expression) (car expression)))
 
@@ -11,6 +11,7 @@
 (define rightoperand caddr)
 (define name-list car)
 (define val-list cadr)
+;; cdr-state: take a state return that state without its first binding 
 (define cdr-state
   (lambda (state)
     (cons (cdr (name-list state)) (list (cdr (val-list state))))))
@@ -65,7 +66,7 @@
       ((null? (car state)) 'null)
       ((eq? var (car (car state))) (caadr state))
       (else (getVar var (cons (cdar state) (cons (cdadr state) '())))))))
-    
+;; take a statement and a state, return the state after execute the statement on the state  
 (define M_state
   (lambda (stmt state)
     (cond
@@ -81,7 +82,7 @@
   (lambda (stmt state)
     add((leftoperand stmt), (M_value (rightoperand stmt)), (remove (leftoperand stmt) state))))
     
-
+;; helper function for remove
 (define remove-cps
   (lambda (var state return)
     (cond
@@ -89,10 +90,26 @@
      [(eq? (car (name-list state)) var) (return (cdr-state state))]
      [else (remove-cps var (cdr-state state)
                        (lambda (v) (cons (cons (car (name-list state)) (name-list v)) (list (cons (car (val-list state)) (val-list v))))))])))
-
+;; remove a var binding out of the state, return the state after the removal
 (define remove
   (lambda (var state)
     (remove-cps var state (lambda (v) v))))
 
+<<<<<<< HEAD
 
 
+=======
+;; declare: add a var binding into a state
+(define declare
+  (lambda (stmt state)
+    (if (null? (cddr stmt)
+      (add (leftoperand stmt) 'null (remove (leftoperand stmt) state))
+      (add (leftoperand stmt) (rightoperand stmt) (remove (leftoperand stmt) state))))))
+
+;; while: perform a while statement
+(define while
+  (lambda(con body state)
+    (if (M_boolean con)
+      (while con body (M_state body state))
+      state)))
+>>>>>>> f3389ab6b35a9eeb4259d89a500168afa8863880
