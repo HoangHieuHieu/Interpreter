@@ -4,6 +4,9 @@
 
 (define operator
   (lambda (expression) (car expression)))
+
+
+
 (define leftoperand cadr)
 (define rightoperand caddr)
 (define name-list car)
@@ -15,16 +18,21 @@
 (define M_boolean
   (lambda (condition state)
     (cond
-      ; cond 1: condition = error
       ((null? condition) #t)
-      ((and (list? (car condition)) (eq? (cdr condition) '&&)) (and (M_boolean(car condition) state) (M_boolean(cdr (cdr condition)) state)))          
-      ((and (list? (car condition)) (eq? (cdr condition) '||)) (or (M_boolean(car condition) state) (M_boolean(cdr (cdr condition)) state)))     
-      ((and  (eq? (car condition) '!) (list? (cdr condition))) (cons [(not (M_boolean(cdr condition) state))] [(M_boolean(cdr (cdr condition)) state)]))
-     
-      ((eq? (car condition) '<) (< (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state)))
-      ((eq? (car condition) '>) (> (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state)))
-      ((eq? (car condition) '=) (= (M_value(cdr condition) state) (M_value(cdr(cdr condition)) state))))))
 
+      ;this part need Prof to verify parsetree structure
+      ((and (list? (car condition))    (eq? (cdr condition) '&&))     (and (M_boolean(car condition) state) (M_boolean(cdr (cdr condition)) state)))          
+      ((and (list? (car condition))    (eq? (cdr condition) '||))     (or (M_boolean(car condition) state) (M_boolean(cdr (cdr condition)) state)))     
+      ((and (eq?   (car condition) '!) (list? (cdr condition)))       (cons [(not (M_boolean(cdr condition) state))] [(M_boolean(cdr (cdr condition)) state)]))
+     
+      ; comparision operator
+      ((eq? (car condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (car condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (car condition) '<=)   (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (car condition) '>=)   (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (car condition) '==)   (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (car condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
+      (else (error 'boolean)))))
 
 (define M_value
   (lambda (expression state)
@@ -77,5 +85,12 @@
     (remove-cps var state (lambda (v) v))))
 
 
+(defind isAssigned)
 
-
+(define add
+  (lambda (var value state)
+    (cond
+      ((null? (name-list state))    (cons (cons (name-list state) var) (cons (val-list state) value)))
+      ((eq? (car (name-list state)) var)  (add var value (remove (var state))))  
+      ; still not find the var yet
+      (else (add var value (cons (cdr (name-list state) (cdr (val-list state)))))))))
