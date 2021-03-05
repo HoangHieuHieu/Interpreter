@@ -95,10 +95,7 @@
   (lambda (var state)
     (remove-cps var state (lambda (v) v))))
 
-<<<<<<< HEAD
 
-
-=======
 ;; declare: add a var binding into a state
 (define declare
   (lambda (stmt state)
@@ -112,4 +109,4 @@
     (if (M_boolean con)
       (while con body (M_state body state))
       state)))
->>>>>>> f3389ab6b35a9eeb4259d89a500168afa8863880
+
