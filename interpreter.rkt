@@ -66,7 +66,9 @@
       ((null? (car state)) 'null)
       ((eq? var (car (car state))) (caadr state))
       (else (getVar var (cons (cdar state) (cons (cdadr state) '())))))))
-;; take a statement and a state, return the state after execute the statement on the state  
+
+
+; Take a statement and a state, return the state after execute the statement on the state  
 (define M_state
   (lambda (stmt state)
     (cond
@@ -110,3 +112,10 @@
       (while con body (M_state body state))
       state)))
 
+
+;; if: perform an if statement
+(define if
+  (lambda (condition stmt1 stmt2 state)
+    (if (M_boolean condition state)
+      (M_state stmt1 (M_state condition state))
+      (M_state stmt2 (M_state condition state)))
