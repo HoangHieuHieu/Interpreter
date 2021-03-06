@@ -11,6 +11,8 @@
 (define rightoperand caddr)
 (define name-list car)
 (define val-list cadr)
+(define first_stmt car)
+(define remaining_stmts cdr)
 ;; cdr-state: take a state return that state without its first binding 
 (define cdr-state
   (lambda (state)
@@ -72,6 +74,7 @@
 (define M_state
   (lambda (stmt state)
     (cond
+      [(list? (operator stmt)) (M_state (remaining_stmts stmt) (Mstate first_stmt state))]
       [(eq? (operator stmt) 'var) state]
       [(eq? (operator stmt) '=) state]
       [(eq? (operator stmt) 'if) state]
