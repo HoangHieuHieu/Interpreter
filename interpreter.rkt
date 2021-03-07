@@ -26,6 +26,7 @@
   (lambda (condition state)
     (cond
       ((null? condition) #t)
+      ;((list? condition) (M_boolean(leftoperand condition) state))
       ; boolean operation 
       ((eq? (car condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
       ((eq? (car condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
@@ -56,7 +57,7 @@
     (cond
       ((null? expression) 0)
       ((number? expression) expression)
-      ((and (not (number? expression)) (not (list? expression))) (getVar expression state))
+      ((not (list? expression)) (getVar expression state))
       ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (leftoperand expression)))
       ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (leftoperand expression)))
       ((eq? (operator expression) '+) (+ (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
@@ -124,7 +125,6 @@
       (while-stmt stmt (M_state (while-body stmt) state))
       state)))
 
-
 ;; if: perform an if statement
 (define if-stmt
   (lambda (stmt state)
@@ -144,3 +144,8 @@
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state)]
       [else (M_boolean expression state)])))
+
+;; interpret: Take in a file name and interpret the code in the file
+(define interpret
+  (lambda (filename)
+    (M_state (parser filename) '(()()))))
