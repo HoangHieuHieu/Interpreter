@@ -10,7 +10,9 @@
 (define leftoperand cadr)
 (define rightoperand caddr)
 (define condition cadr)
-(define body caddr)
+(define while-body caddr)
+(define if-body1 caddr)
+(define if-body2 cadddr)
 (define name-list car)
 (define val-list cadr)
 (define first_stmt car)
@@ -119,16 +121,17 @@
 (define while-stmt
   (lambda(stmt state)
     (if (M_boolean (condition stmt) state)
-      (while-stmt stmt (M_state (body stmt) state))
+      (while-stmt stmt (M_state (while-body stmt) state))
       state)))
 
 
 ;; if: perform an if statement
 (define if-stmt
   (lambda (stmt state)
-    (if (M_boolean (condition stmt) state)
-      (M_state (body stmt) state)
-      state)))
+    (cond
+      ((M_boolean (condition stmt) state) (M_state (if-body1 stmt) state))
+      ((not (null? (if-body2 stmt))) (M_state (if-body2 stmt) state))
+      (else state))))
 
 ;; M_value: takes an expression, return the value of it (either a boolean or an integer)
 (define M_value
