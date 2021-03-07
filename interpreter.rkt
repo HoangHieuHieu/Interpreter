@@ -9,6 +9,8 @@
 
 (define leftoperand cadr)
 (define rightoperand caddr)
+(define condition cadr)
+(define body caddr)
 (define name-list car)
 (define val-list cadr)
 (define first_stmt car)
@@ -22,14 +24,12 @@
   (lambda (condition state)
     (cond
       ((null? condition) #t)
-      ((list? condition) (M_boolean(leftoperand condition) state))
+      ;((list? condition) (M_boolean(leftoperand condition) state))
       ; boolean operation 
       ((eq? (car condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
       ((eq? (car condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
       ((eq? (car condition) '!)     (cons ((not (M_boolean(cdr condition) state)))  ((M_boolean(rightoperand condition) state))))
-     
       ; comparision operator
-
       ((eq? (car condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (car condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (car condition) '<=)   (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
@@ -44,7 +44,7 @@
   (lambda (var value state)
     (cond
       ((null? (name-list state))    (cons (cons var (name-list state)) (cons value (val-list state))))
-      ((eq? (car (name-list state)) var) (cons (cons var (name-list (remove var state))) (list (cons value (val-list (remove var state)) ) )      ))))) ;(add var value (remove (var state))))  
+      ((eq? (car (name-list state)) var) (cons (cons var (name-list (remove var state))) (list (cons value (val-list (remove var state))))))))) ;(add var value (remove (var state))))  
       ; still not find the var yet
      ; (else (add var value (cons (cdr (name-list state) (cdr (val-list state)))))))))
 
@@ -79,13 +79,18 @@
     (cond
       [(list? (operator stmt)) (M_state (remaining_stmts stmt) (M_state first_stmt state))]
       [(eq? (operator stmt) 'var) (declare stmt state)]
-      [(eq? (operator stmt) '=) state]
-      [(eq? (operator stmt) 'if) state]
-      [(eq? (operator stmt) 'while) state]
+      [(eq? (operator stmt) '=) (assign stmt state)]
+      [(eq? (operator stmt) 'if) (if-stmt stmt state)]
+      [(eq? (operator stmt) 'while) (while-stmt stmt state)]
+      [(eq? (operator stmt) 'return) (return-stmt stmt state)]
       [else (error 'stmt-not-defined)])))
 
+;; return: return a value
+(define return-stmt
+  (lambda (stmt state)
+    (M_value (cadr stmt) state)))
 
-
+;; assign: binding a value to a variable
 (define assign
   (lambda (stmt state)
     (add (leftoperand stmt) (M_integer (rightoperand stmt) state) (remove (leftoperand stmt) state))))
@@ -112,7 +117,7 @@
       (add (leftoperand stmt) (rightoperand stmt) (remove (leftoperand stmt) state)))))
 
 ;; while: perform a while statement
-(define while
+(define while-stmt
   (lambda(con body state)
     (if (M_boolean con state)
       (while con body (M_state body state))
@@ -121,10 +126,10 @@
 
 ;; if: perform an if statement
 (define if-stmt
-  (lambda (condition stmt1 stmt2 state)
+  (lambda (condition stmt state)
     (if (M_boolean condition state)
-      (M_state stmt1 (M_state condition state))
-      (M_state stmt2 (M_state condition state)))))
+      (M_state stmt state)
+      state)))
 
 ;; M_value: takes an expression, return the value of it (either a boolean or an integer)
 (define M_value
@@ -134,6 +139,6 @@
       [(eq? expression 'false) false]
       [(number? expression) expression]
       [(not (list? expression)) (getVar expression state)]
-      [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/))
+      [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state)]
       [else (M_boolean expression state)])))
