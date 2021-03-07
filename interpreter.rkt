@@ -24,6 +24,7 @@
   (lambda (condition state)
     (cond
       ((null? condition) #t)
+      ;((list? condition) (M_boolean(leftoperand condition) state))
       ; boolean operation 
       ((eq? (car condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
       ((eq? (car condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
@@ -54,7 +55,7 @@
     (cond
       ((null? expression) 0)
       ((number? expression) expression)
-      ((and (not (number? expression)) (not (list? expression))) (getVar expression state))
+      ((not (list? expression)) (getVar expression state))
       ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (leftoperand expression)))
       ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (leftoperand expression)))
       ((eq? (operator expression) '+) (+ (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
@@ -117,17 +118,17 @@
 
 ;; while: perform a while statement
 (define while-stmt
-  (lambda(stmt state)
-    (if (M_boolean (condition stmt) state)
-      (while-stmt stmt (M_state (body stmt) state))
+  (lambda(con body state)
+    (if (M_boolean con state)
+      (while-stmt con body (M_state body state))
       state)))
 
 
 ;; if: perform an if statement
 (define if-stmt
-  (lambda (stmt state)
-    (if (M_boolean (condition stmt) state)
-      (M_state (body stmt) state)
+  (lambda (condition stmt state)
+    (if (M_boolean condition state)
+      (M_state stmt state)
       state)))
 
 ;; M_value: takes an expression, return the value of it (either a boolean or an integer)
@@ -141,3 +142,8 @@
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state)]
       [else (M_boolean expression state)])))
+
+;; interpret: Take in a file name and interpret the code in the file
+(define interpret
+  (lambda (filename)
+    (M_state (parser filename) '(()()))))
