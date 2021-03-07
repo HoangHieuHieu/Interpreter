@@ -24,7 +24,6 @@
   (lambda (condition state)
     (cond
       ((null? condition) #t)
-      ;((list? condition) (M_boolean(leftoperand condition) state))
       ; boolean operation 
       ((eq? (car condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
       ((eq? (car condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
@@ -118,17 +117,17 @@
 
 ;; while: perform a while statement
 (define while-stmt
-  (lambda(con body state)
-    (if (M_boolean con state)
-      (while con body (M_state body state))
+  (lambda(stmt state)
+    (if (M_boolean (condition stmt) state)
+      (while-stmt stmt (M_state (body stmt) state))
       state)))
 
 
 ;; if: perform an if statement
 (define if-stmt
-  (lambda (condition stmt state)
-    (if (M_boolean condition state)
-      (M_state stmt state)
+  (lambda (stmt state)
+    (if (M_boolean (condition stmt) state)
+      (M_state (body stmt) state)
       state)))
 
 ;; M_value: takes an expression, return the value of it (either a boolean or an integer)
