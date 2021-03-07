@@ -20,11 +20,11 @@
   (lambda (condition state)
     (cond
       ((null? condition) #t)
-
-      ;this part need Prof to verify parsetree structure
-      ((and (list? (car condition))    (eq? (cdr condition) '&&))     (and (M_boolean(car condition) state) (M_boolean(cdr (cdr condition)) state)))          
-      ((and (list? (car condition))    (eq? (cdr condition) '||))     (or (M_boolean(car condition) state) (M_boolean(cdr (cdr condition)) state)))     
-      ((and (eq?   (car condition) '!) (list? (cdr condition)))       (cons [(not (M_boolean(cdr condition) state))] [(M_boolean(cdr (cdr condition)) state)]))
+      ((list? condition) (M_boolean(leftoperand condition) state))
+      ; boolean operation 
+      ((eq? (car condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
+      ((eq? (car condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
+      ((eq? (car condition) '!)     (cons ((not (M_boolean(cdr condition) state)))  ((M_boolean(rightoperand condition) state))))
      
       ; comparision operator
       ((eq? (car condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
@@ -33,7 +33,7 @@
       ((eq? (car condition) '>=)   (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (car condition) '==)   (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (car condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
-      (else (error 'boolean)))))
+      (else (error 'bad-boolean)))))
 
 
 (define add
