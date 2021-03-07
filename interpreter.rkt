@@ -74,7 +74,7 @@
 (define M_state
   (lambda (stmt state)
     (cond
-      [(list? (operator stmt)) (M_state (remaining_stmts stmt) (Mstate first_stmt state))]
+      [(list? (operator stmt)) (M_state (remaining_stmts stmt) (M_state first_stmt state))]
       [(eq? (operator stmt) 'var) state]
       [(eq? (operator stmt) '=) state]
       [(eq? (operator stmt) 'if) state]
@@ -85,7 +85,7 @@
 
 (define assign
   (lambda (stmt state)
-    add((leftoperand stmt), (M_value (rightoperand stmt)), (remove (leftoperand stmt) state))))
+    (add (leftoperand stmt) (M_value (rightoperand stmt)) (remove (leftoperand stmt) state))))
     
 ;; helper function for remove
 (define remove-cps
@@ -121,4 +121,4 @@
   (lambda (condition stmt1 stmt2 state)
     (if (M_boolean condition state)
       (M_state stmt1 (M_state condition state))
-      (M_state stmt2 (M_state condition state)))
+      (M_state stmt2 (M_state condition state)))))
