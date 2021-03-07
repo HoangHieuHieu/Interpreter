@@ -29,12 +29,12 @@
       ((and (eq?   (car condition) '!) (list? (cdr condition)))       (cons [(not (M_boolean(cdr condition) state))] [(M_boolean(cdr (cdr condition)) state)]))
      
       ; comparision operator
-      ((eq? (car condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '<=)   (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '>=)   (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '==)   (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
+      ((eq? (car condition) '<)    (< (M_integer (leftoperand condition) state) (M_integer (rightoperand condition) state)))
+      ((eq? (car condition) '>)    (> (M_integer (leftoperand condition) state) (M_integer (rightoperand condition) state)))
+      ((eq? (car condition) '<=)   (< (M_integer (leftoperand condition) state) (M_integer (rightoperand condition) state)))
+      ((eq? (car condition) '>=)   (> (M_integer (leftoperand condition) state) (M_integer (rightoperand condition) state)))
+      ((eq? (car condition) '==)   (= (M_integer (leftoperand condition) state) (M_integer (rightoperand condition) state)))
+      ((eq? (car condition) '!=)   (not (= (M_integer (leftoperand condition) state) (M_integer (rightoperand condition) state))))
       (else (error 'boolean)))))
 
 
@@ -47,7 +47,7 @@
       (else (add var value (cons (cdr (name-list state) (cdr (val-list state)))))))))
 
 
-(define M_value
+(define M_integer
   (lambda (expression state)
     (cond
       ((null? expression) 0)
@@ -55,11 +55,11 @@
       ((and (not (number? expression)) (not (list? expression))) (getVar expression state))
       ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (leftoperand expression)))
       ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (leftoperand expression)))
-      ((eq? (operator expression) '+) (+ (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      ((eq? (operator expression) '-) (- (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      ((eq? (operator expression) '*) (* (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      ((eq? (operator expression) '/) (quotient (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      ((eq? (operator expression) '%) (remainder (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '+) (+ (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
+      ((eq? (operator expression) '-) (- (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
+      ((eq? (operator expression) '*) (* (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
+      ((eq? (operator expression) '/) (quotient (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
+      ((eq? (operator expression) '%) (remainder (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
       (else (error 'bad-operator)))))
 
 (define getVar
@@ -75,7 +75,7 @@
   (lambda (stmt state)
     (cond
       [(list? (operator stmt)) (M_state (remaining_stmts stmt) (M_state first_stmt state))]
-      [(eq? (operator stmt) 'var) state]
+      [(eq? (operator stmt) 'var) (declare stmt state)]
       [(eq? (operator stmt) '=) state]
       [(eq? (operator stmt) 'if) state]
       [(eq? (operator stmt) 'while) state]
@@ -85,7 +85,7 @@
 
 (define assign
   (lambda (stmt state)
-    (add (leftoperand stmt) (M_value (rightoperand stmt)) (remove (leftoperand stmt) state))))
+    (add (leftoperand stmt) (M_integer (rightoperand stmt) state) (remove (leftoperand stmt) state))))
     
 ;; helper function for remove
 (define remove-cps
@@ -104,21 +104,33 @@
 ;; declare: add a var binding into a state
 (define declare
   (lambda (stmt state)
-    (if (null? (cddr stmt)
+    (if (null? (cddr stmt))
       (add (leftoperand stmt) 'null (remove (leftoperand stmt) state))
-      (add (leftoperand stmt) (rightoperand stmt) (remove (leftoperand stmt) state))))))
+      (add (leftoperand stmt) (rightoperand stmt) (remove (leftoperand stmt) state)))))
 
 ;; while: perform a while statement
 (define while
   (lambda(con body state)
-    (if (M_boolean con)
+    (if (M_boolean con state)
       (while con body (M_state body state))
       state)))
 
 
 ;; if: perform an if statement
-(define if
+(define if-stmt
   (lambda (condition stmt1 stmt2 state)
     (if (M_boolean condition state)
       (M_state stmt1 (M_state condition state))
       (M_state stmt2 (M_state condition state)))))
+
+;; M_value: takes an expression, return the value of it (either a boolean or an integer)
+(define M_value
+  (lambda (expression state)
+    (cond
+      [(eq? expression 'true) true]
+      [(eq? expression 'false) false]
+      [(number? expression) expression]
+      [(not (list? expression)) (getVar expression state)]
+      [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/))
+       (M_integer expression state)]
+      [else (M_boolean expression state)])))
