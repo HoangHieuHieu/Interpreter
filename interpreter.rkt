@@ -43,10 +43,11 @@
 (define add
   (lambda (var value state)
     (cond
-      ((null? (name-list state))    (cons (cons (name-list state) var) (cons (val-list state) value)))
-      ((eq? (car (name-list state)) var)  (add var value (remove (var state))))  
+      ((null? (name-list state))    (cons (cons var (name-list state)) (cons value (val-list state))))
+      ((eq? (car (name-list state)) var) (cons (cons var (name-list (remove var state))) (list (cons value (val-list (remove var state)) ) )      ))))) ;(add var value (remove (var state))))  
       ; still not find the var yet
-      (else (add var value (cons (cdr (name-list state) (cdr (val-list state)))))))))
+     ; (else (add var value (cons (cdr (name-list state) (cdr (val-list state)))))))))
+
 
 
 (define M_integer
