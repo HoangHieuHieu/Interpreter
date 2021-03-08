@@ -31,11 +31,15 @@
   (lambda (condition state)
     (cond
       ((null? condition) #t)
-      ;((list? condition) (M_boolean(leftoperand condition) state))
+      ((boolean? (car condition))   (return-stmt (car condition) state))
+
       ; boolean operation 
+      ((eq? (car condition) 'true)   #t)
+      ((eq? (car condition) 'false)  #f)
       ((eq? (car condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
       ((eq? (car condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
       ((eq? (car condition) '!)     (cons ((not (M_boolean(cdr condition) state)))  ((M_boolean(rightoperand condition) state))))
+     
       ; comparision operator
       ((eq? (car condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (car condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
