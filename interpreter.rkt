@@ -111,10 +111,10 @@
 (define remove-cps
   (lambda (var state return)
     (cond
-     [(null? (name-list state)) (return state)]
+     [(null? (name-list state)) (return init-state)]
      [(eq? (car (name-list state)) var) (return (cdr-state state))]
      [else (remove-cps var (cdr-state state)
-                       (lambda (v) (cons (cons (car (name-list state)) (name-list v)) (list (cons (car (val-list state)) (val-list v))))))])))
+                       (lambda (v) (return (list (cons (car (name-list state)) (name-list v)) (cons (car (val-list state)) (val-list v))))))])))
 ;; remove a var binding out of the state, return the state after the removal
 (define remove
   (lambda (var state)
