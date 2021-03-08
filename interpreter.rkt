@@ -150,11 +150,10 @@
 (define M_value
   (lambda (expression state)
     (cond
-      [(eq? expression 'true) true]
-      [(eq? expression 'false) false]
+      [(eq? expression 'true) #t]
+      [(eq? expression 'false)#f]
       [(number? expression) expression]
       [(not (list? expression)) (getVar expression state)]
-      [(eq? (operator expression) '=) (M_value (leftoperand expression) (M_state expression state))]
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state)]
       [else (M_boolean expression state)])))
