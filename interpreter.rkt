@@ -52,7 +52,7 @@
 (define add
   (lambda (var value state)
     (cond
-      ((or (null? (name-list state)) (not (declared? var state)))    (cons (cons var (name-list state)) (cons value (val-list state))))
+      ((or (null? (name-list state)) (not (declared? var state)))    (cons (cons var (name-list state)) (list (cons value (val-list state)))))
       ((declared? var state)         (add var value (remove var state))))))
 
 
