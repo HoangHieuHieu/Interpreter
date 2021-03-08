@@ -32,11 +32,13 @@
   (lambda (condition state)
     (cond
       ((null? condition) #t)
+      ((eq? condition 'true)   #t)
+      ((eq? condition 'false)  #f)
+      ((not (or (boolean? condition) (list? condition))) (getVar condition state))
       ((boolean? (car condition))   (return-stmt (car condition) state))
-
+      
       ; boolean operation 
-      ((eq? (operator condition) 'true)   #t)
-      ((eq? (operator condition) 'false)  #f)
+      
       ((eq? (operator condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
       ((eq? (operator condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
       ((eq? (operator condition) '!)     (not (M_boolean (leftoperand condition) state)))
@@ -64,13 +66,14 @@
       ((null? expression) 0)
       ((number? expression) expression)
       ((not (list? expression)) (getVar expression state))
-      ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (leftoperand expression)))
-      ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (leftoperand expression)))
-      ((eq? (operator expression) '+) (+ (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
-      ((eq? (operator expression) '-) (- (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
-      ((eq? (operator expression) '*) (* (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
-      ((eq? (operator expression) '/) (quotient (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
-      ((eq? (operator expression) '%) (remainder (M_integer (leftoperand expression) state) (M_integer (rightoperand expression) state)))
+      ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (M_value (leftoperand expression) state)))
+      ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (M_value (leftoperand expression) state)))
+      ((eq? (operator expression) '+) (+ (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '-) (- (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '*) (* (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '/) (quotient (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((eq? (operator expression) '%) (remainder (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      
       (else (error 'bad-operator)))))
 
 (define getVar
@@ -103,8 +106,8 @@
 ;; assign: binding a value to a variable
 (define assign
   (lambda (stmt state)
-    (if (declared? (leftoperand stmt) state)
-    (add (leftoperand stmt) (M_integer (rightoperand stmt) state) (remove (leftoperand stmt) state))
+    (if (or (declared? (leftoperand stmt) state) (eq? (operator stmt) 'var))
+    (add (leftoperand stmt) (M_value (rightoperand stmt) state) (remove (leftoperand stmt) state))
     (error 'undeclared-variables))))
     
 ;; helper function for remove
@@ -151,6 +154,7 @@
       [(eq? expression 'false) false]
       [(number? expression) expression]
       [(not (list? expression)) (getVar expression state)]
+      [(eq? (operator expression) '=) (M_value (leftoperand expression) (M_state expression state))]
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state)]
       [else (M_boolean expression state)])))
@@ -164,5 +168,5 @@
   (lambda (out)
     (cond
       [(number? out) out]
-      [(eq? out 'true) 'true]
+      [(eq? out #t) 'true]
       [else  'false])))
