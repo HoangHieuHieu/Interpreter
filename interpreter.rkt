@@ -76,6 +76,7 @@
   (lambda (var state)
     (cond
       ((null? (car state)) '(error 'undeclared-variables))
+      ((and (eq? var (car (name-list state))) (eq? (car (val-list state)) 'null)) (error 'variables-were-not-assigned-values))
       ((eq? var (car (name-list state))) (car (val-list state)))
       (else (getVar var (cdr-state state))))))
 
