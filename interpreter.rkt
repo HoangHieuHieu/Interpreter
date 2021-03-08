@@ -1,12 +1,9 @@
 
 #lang racket
-
+(require "simpleParser.rkt")
 ;; abstractions
 (define operator
   (lambda (expression) (car expression)))
-
-
-
 (define leftoperand cadr)
 (define rightoperand caddr)
 (define condition cadr)
@@ -21,6 +18,14 @@
 (define cdr-state
   (lambda (state)
     (cons (cdr (name-list state)) (list (cdr (val-list state))))))
+
+;; declared?: check if a var is declared
+(define declared?
+  (lambda (var state)
+    (cond
+      [(null? (name-list state)) #f]
+      [(eq? (car (name-list state)) var) #t]
+      [else (declared? var (cdr-state state))])))
 
 (define M_boolean
   (lambda (condition state)
@@ -70,9 +75,9 @@
 (define getVar
   (lambda (var state)
     (cond
-      ((null? (car state)) 'null)
-      ((eq? var (car (car state))) (caadr state))
-      (else (getVar var (cons (cdar state) (cons (cdadr state) '())))))))
+      ((null? (car state)) '(error 'undeclared-variables))
+      ((eq? var (car (name-list state))) (car (val-list state)))
+      (else (getVar var (cdr-state state))))))
 
 
 ; Take a statement and a state, return the state after execute the statement on the state  
@@ -95,7 +100,9 @@
 ;; assign: binding a value to a variable
 (define assign
   (lambda (stmt state)
-    (add (leftoperand stmt) (M_integer (rightoperand stmt) state) (remove (leftoperand stmt) state))))
+    (if (declared? (leftoperand stmt) state)
+    (add (leftoperand stmt) (M_integer (rightoperand stmt) state) (remove (leftoperand stmt) state))
+    (error 'undeclared-variables))))
     
 ;; helper function for remove
 (define remove-cps
