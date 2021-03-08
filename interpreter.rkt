@@ -9,11 +9,12 @@
 (define condition cadr)
 (define while-body caddr)
 (define if-body1 caddr)
-(define if-body2 cadddr)
+(define if-body2 cdddr)
 (define name-list car)
 (define val-list cadr)
 (define first_stmt car)
 (define remaining_stmts cdr)
+(define init-state '(()()))
 ;; cdr-state: take a state return that state without its first binding 
 (define cdr-state
   (lambda (state)
@@ -34,19 +35,19 @@
       ((boolean? (car condition))   (return-stmt (car condition) state))
 
       ; boolean operation 
-      ((eq? (car condition) 'true)   #t)
-      ((eq? (car condition) 'false)  #f)
-      ((eq? (car condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
-      ((eq? (car condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
-      ((eq? (car condition) '!)     (cons ((not (M_boolean(cdr condition) state)))  ((M_boolean(rightoperand condition) state))))
+      ((eq? (operator condition) 'true)   #t)
+      ((eq? (operator condition) 'false)  #f)
+      ((eq? (operator condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
+      ((eq? (operator condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
+      ((eq? (operator condition) '!)     (not (M_boolean (leftoperand condition) state)))
      
       ; comparision operator
-      ((eq? (car condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '<=)   (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '>=)   (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '==)   (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (car condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
+      ((eq? (operator condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (operator condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (operator condition) '<=)   (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (operator condition) '>=)   (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (operator condition) '==)   (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (operator condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
       (else (error 'bad-boolean)))))
 
 (define add
@@ -85,7 +86,8 @@
 (define M_state
   (lambda (stmt state)
     (cond
-      [(list? (operator stmt)) (M_state (remaining_stmts stmt) (M_state first_stmt state))]
+      [(null? stmt) state]
+      [(list? (operator stmt)) (M_state (remaining_stmts stmt) (M_state (first_stmt stmt) state))]
       [(eq? (operator stmt) 'var) (declare stmt state)]
       [(eq? (operator stmt) '=) (assign stmt state)]
       [(eq? (operator stmt) 'if) (if-stmt stmt state)]
@@ -96,7 +98,7 @@
 ;; return: return a value
 (define return-stmt
   (lambda (stmt state)
-    (M_value (cadr stmt) state)))
+    (format-out (M_value (cadr stmt) state))))
 
 ;; assign: binding a value to a variable
 (define assign
@@ -124,7 +126,7 @@
   (lambda (stmt state)
     (if (null? (cddr stmt))
       (add (leftoperand stmt) 'null (remove (leftoperand stmt) state))
-      (add (leftoperand stmt) (rightoperand stmt) (remove (leftoperand stmt) state)))))
+      (add (leftoperand stmt) (M_value (rightoperand stmt) state) (remove (leftoperand stmt) state)))))
 
 ;; while: perform a while statement
 (define while-stmt
@@ -156,4 +158,11 @@
 ;; interpret: Take in a file name and interpret the code in the file
 (define interpret
   (lambda (filename)
-    (M_state (parser filename) '(()()))))
+    (M_state (parser filename) init-state)))
+
+(define format-out
+  (lambda (out)
+    (cond
+      [(number? out) out]
+      [(eq? out 'true) 'true]
+      [else  'false])))
