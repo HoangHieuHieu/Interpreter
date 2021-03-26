@@ -41,21 +41,12 @@
 (define init-state '(()()))
 (define prev-frame caddr)
 
-(define error-break (lambda (v) v))
-(call-with-current-continuation (lambda (k) (set! error-break k)))
-(define myerror
-  (lambda (str . vals)
-    (letrec ((makestr (lambda (str vals)
-                        (if (null? vals)
-                            str
-                            (makestr (string-append str (string-append " " (symbol->string (car vals)))) (cdr vals))))))
-      (error-break (display (string-append str (makestr "" vals)))))))
-
+;; default break: send error message
 (define breakOutsideLoopError
-  (lambda (env) (myerror "Break used outside loop")))
-
+  (lambda (env) (error 'invalid-break)))
+;;default continue: send error message
 (define continueOutsideLoopError
-  (lambda (env) (myerror "Continue used outside of loop")))
+  (lambda (env) (error 'invalid-continue)))
 
 ;; cdr-state: take a state return that state without its first binding 
 (define cdr-state
@@ -182,7 +173,7 @@
          ((null? (name-list state)) (list (name-list state) (val-list state) (modify-state var val (prev-frame state))))
          ((eq? (car (name-list state)) var) (list (name-list state) (cons val (cdr (val-list state))) (prev-frame state)))
          (else (add (car (name-list state)) (car (val-list state)) (modify-state var val (cdr-state state)))))))))
-'((a)(1)((b c)(3 4)()))
+
 ;; return: return a value
 ;; return-stmt: return a value
 (define return-stmt
