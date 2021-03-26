@@ -1,8 +1,7 @@
-var x = 5;
-var y = 6;
-var m;
-if (x <= y)
-  m = x;
-else
-  m = y;
-return m;
+var x = 10;
+{
+  var y = 2;
+  var z = x * y;
+  x = z;
+}
+return x;

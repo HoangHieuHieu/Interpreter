@@ -1,0 +1,1 @@
+("7.9" racket ("f87a847d51bd3656560280ecf9fe22c10b441429" . "005340a1d3521c47ce6eb3bcf08b5a9af065b141") #"C:\\github\\Interpreter\\lex.rkt" (collects #"errortrace" #"errortrace-key.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))
