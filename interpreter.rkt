@@ -1,19 +1,43 @@
-
 #lang racket
 (require "simpleParser.rkt")
-;; abstractions
+
+;; abstractions 
+
+;; operator: Extracts the operator from the expression
 (define operator
   (lambda (expression) (car expression)))
+
+;; leftoperand: Returns the left operand of given statement
 (define leftoperand cadr)
+
+;; rightoperand: returns the right operand of given statement
 (define rightoperand caddr)
+
+;; condition: return the conditional statement
 (define condition cadr)
+
+;; while-body: returns the body of while loop
 (define while-body caddr)
+
+;; if-body1: returns the first statement of the if statement
 (define if-body1 caddr)
+
+;; if-body2: returns the second statement of the if statement
 (define if-body2 cdddr)
+
+;; name-list: returns the list of variable names
 (define name-list car)
+
+;; val-list: returns the list of variable values
 (define val-list cadr)
+
+;; first_stmt: returns the first part of the statements
 (define first_stmt car)
+
+;; remaining_stmts: returns the rest of the statements
 (define remaining_stmts cdr)
+
+;; init-state: initializes the state in the program
 (define init-state '(()()))
 (define prev-frame caddr)
 
@@ -47,6 +71,8 @@
       [(eq? (car (name-list state)) var) #t]
       [else (declared? var (cdr-state state))])))
 
+
+;; M_boolean: returns the boolean value for given condition
 (define M_boolean
   (lambda (condition state)
     (cond
@@ -55,13 +81,10 @@
       ((eq? condition 'false)  #f)
       ((not (or (boolean? condition) (list? condition))) (getVar condition state))
       ((boolean? (car condition))   (return-stmt (car condition) state))
-      
       ; boolean operation 
-      
       ((eq? (operator condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
       ((eq? (operator condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
-      ((eq? (operator condition) '!)     (not (M_boolean (leftoperand condition) state)))
-     
+      ((eq? (operator condition) '!)     (not (M_boolean (leftoperand condition) state))) 
       ; comparision operator
       ((eq? (operator condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (operator condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
@@ -71,6 +94,7 @@
       ((eq? (operator condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
       (else (error 'bad-boolean)))))
 
+;; add: returns the state after adding new variable and its value
 (define add
   (lambda (var value state)
     (cond
@@ -90,9 +114,9 @@
       ((eq? (operator expression) '*) (* (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
       ((eq? (operator expression) '/) (quotient (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
       ((eq? (operator expression) '%) (remainder (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      
       (else (error 'bad-operator)))))
 
+;; getVar: takes in a variable and returns its value 
 (define getVar
   (lambda (var state)
     (cond
@@ -103,7 +127,7 @@
       (else (getVar var (cdr-state state))))))
 
 
-; Take a statement and a state, return the state after execute the statement on the state  
+; M_state: take a statement and a state, return the state after execute the statement on the state  
 (define M_state
   (lambda (stmt state break return continue)
     (cond
@@ -160,6 +184,7 @@
          (else (add (car (name-list state)) (car (val-list state)) (modify-state var val (cdr-state state)))))))))
 '((a)(1)((b c)(3 4)()))
 ;; return: return a value
+;; return-stmt: return a value
 (define return-stmt
   (lambda (stmt state)
     (format-out (M_value (cadr stmt) state))))
@@ -171,7 +196,7 @@
     (modify-state (leftoperand stmt) (M_value (rightoperand stmt) state) state)
     (error 'undeclared-variables))))
     
-;; helper function for remove
+;; remove-cps: helper function for remove
 (define remove-cps
   (lambda (var state return)
     (cond
@@ -191,7 +216,7 @@
       (add (leftoperand stmt) 'null (remove (leftoperand stmt) state))
       (add (leftoperand stmt) (M_value (rightoperand stmt) state) (remove (leftoperand stmt) state)))))
 
-;; while: perform a while statement
+;; while-stmt: perform a while statement
 (define while-stmt
   (lambda(stmt state)
     (if (M_boolean (condition stmt) state)
@@ -210,6 +235,7 @@
 
                              
 ; if: perform an if statement
+;; i-stmtf: perform an if statement
 (define if-stmt
   (lambda (stmt state break return continue)
     (cond
@@ -221,11 +247,10 @@
 (define M_value
   (lambda (expression state)
     (cond
-      [(eq? expression 'true) true]
-      [(eq? expression 'false) false]
+      [(eq? expression 'true) #t]
+      [(eq? expression 'false)#f]
       [(number? expression) expression]
       [(not (list? expression)) (getVar expression state)]
-      [(eq? (operator expression) '=) (M_value (leftoperand expression) (M_state expression state))]
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state)]
       [else (M_boolean expression state)])))
@@ -235,6 +260,7 @@
   (lambda (filename)
     (M_state (parser filename) init-state breakOutsideLoopError (lambda (v) v) continueOutsideLoopError)))
 
+;; format-out: return format of the result
 (define format-out
   (lambda (out)
     (cond
