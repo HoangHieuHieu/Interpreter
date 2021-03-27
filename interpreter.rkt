@@ -37,13 +37,19 @@
 ;; remaining_stmts: returns the rest of the statements
 (define remaining_stmts cdr)
 
-;; init-state: initializes the state in the program
-(define init-state '(()()))
+;; new-frame: initializes new frame for the state
+(define new-frame '(()()))
+
+;; prev-frame: get the state outside of the block
 (define prev-frame caddr)
+
+;;init-state: initializes the state for the program
+(define init-state '(()()()))
 
 ;; default break: send error message
 (define breakOutsideLoopError
   (lambda (env) (error 'invalid-break)))
+
 ;;default continue: send error message
 (define continueOutsideLoopError
   (lambda (env) (error 'invalid-continue)))
@@ -123,45 +129,16 @@
   (lambda (stmt state break return continue)
     (cond
       [(null? stmt) state]
-      [(list? (operator stmt)) (M_state (remaining_stmts stmt) (M_state (first_stmt stmt) state break return continue) break return continue)]
+      [(pair? (operator stmt)) (M_state (remaining_stmts stmt) (M_state (first_stmt stmt) state break return continue) break return continue)]
       [(eq? (operator stmt) 'var) (declare stmt state)]
       [(eq? (operator stmt) '=) (assign stmt state)]
       [(eq? (operator stmt) 'if) (if-stmt stmt state break return continue)]
       [(eq? (operator stmt) 'while) (while-stmt-break stmt state return)]
-      [(eq? (operator stmt) 'return) (return-stmt stmt state)]
+      [(eq? (operator stmt) 'return) (return-stmt stmt return state)]
       [(eq? (operator stmt) 'break) (break state)]
       [(eq? (operator stmt) 'begin) (block (cdr stmt) state break return continue)]
       [(eq? (operator stmt) 'continue) (continue state)]
-      [(eq? (operator stmt) 'return) (return state)]
       [else (error 'stmt-not-defined)])))
-
-
-
-(define newframe
-  (lambda ()
-    '(() ())))
-
-(define M_block
-  (lambda (stmt state break return)
-    (pop-frame (interpret-block-statement-list (cdr stmt)
-                                         (push-frame state)
-                                         return
-                                         (lambda (env) (break (pop-frame env)))))))
-(define push-frame
-  (lambda (state)
-    (cons (newframe) state)))
-
-; remove a frame from the environment
-(define pop-frame
-  (lambda (state)
-    (cdr state)))
-
-; Used for interpreting the block statments of while loops
-(define interpret-block-statement-list
-  (lambda (statement-list state return break)
-    (if (null? statement-list)
-        state
-        (interpret-block-statement-list (remaining_stmts statement-list) (M_state (first_stmt statement-list) state break return) return break))))
 
 ;function to modify state
 (define modify-state
@@ -177,8 +154,8 @@
 ;; return: return a value
 ;; return-stmt: return a value
 (define return-stmt
-  (lambda (stmt state)
-    (format-out (M_value (cadr stmt) state))))
+  (lambda (stmt return state)
+    (return (format-out (M_value (cadr stmt) state)))))
 
 ;; assign: binding a value to a variable
 (define assign
@@ -191,10 +168,11 @@
 (define remove-cps
   (lambda (var state return)
     (cond
-     [(null? (name-list state)) (return (append init-state (list '())))]
+     [(null? (name-list state)) (return state)]
      [(eq? (car (name-list state)) var) (return (cdr-state state))]
      [else (remove-cps var (cdr-state state)
                        (lambda (v) (return (list (cons (car (name-list state)) (name-list v)) (cons (car (val-list state)) (val-list v)) (prev-frame state)))))])))
+
 ;; remove a var binding out of the state, return the state after the removal
 (define remove
   (lambda (var state)
@@ -248,8 +226,10 @@
 
 ;; interpret: Take in a file name and interpret the code in the file
 (define interpret
-  (lambda (filename)
-    (M_state (parser filename) init-state breakOutsideLoopError (lambda (v) v) continueOutsideLoopError)))
+     (lambda (filename)
+       (call/cc
+        (lambda (return)
+          (M_state (parser filename) init-state breakOutsideLoopError return continueOutsideLoopError)))))
 
 ;; format-out: return format of the result
 (define format-out
@@ -261,5 +241,5 @@
 
 (define block
   (lambda (stmt state break return continue)
-    (prev-frame (M_state stmt (append init-state (list state)) (lambda (v) (break (prev-frame v))) return continue))))
+    (prev-frame (M_state stmt (append new-frame (list state)) (lambda (v) (break (prev-frame v))) return continue))))
 
