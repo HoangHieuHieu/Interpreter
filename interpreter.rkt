@@ -79,8 +79,8 @@
       ; comparision operator
       ((eq? (operator condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (operator condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (operator condition) '<=)   (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (operator condition) '>=)   (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (operator condition) '<=)   (<= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
+      ((eq? (operator condition) '>=)   (>= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (operator condition) '==)   (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
       ((eq? (operator condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
       (else (error 'bad-boolean)))))
@@ -203,9 +203,10 @@
 ;; declare: add a var binding into a state
 (define declare
   (lambda (stmt state)
-    (if (null? (cddr stmt))
-      (add (leftoperand stmt) 'null (remove (leftoperand stmt) state))
-      (add (leftoperand stmt) (M_value (rightoperand stmt) state) (remove (leftoperand stmt) state)))))
+    (cond
+      [(declared? (leftoperand stmt) state) (error 'used-variable)]
+      [(null? (cddr stmt)) (add (leftoperand stmt) 'null state)]
+      [else (add (leftoperand stmt) (M_value (rightoperand stmt) state) state)])))
 
 ;; while-stmt: perform a while statement
 (define while-stmt
@@ -226,7 +227,7 @@
 
                              
 ; if: perform an if statement
-;; i-stmtf: perform an if statement
+;; if-stmt: perform an if statement
 (define if-stmt
   (lambda (stmt state break return continue)
     (cond
@@ -249,7 +250,7 @@
 ;; interpret: Take in a file name and interpret the code in the file
 (define interpret
   (lambda (filename)
-    (M_state (parser filename) init-state breakOutsideLoopError (lambda (v) v) continueOutsideLoopError)))
+    (M_state (parser filename) (append init-state '(())) breakOutsideLoopError (lambda (v) v) continueOutsideLoopError)))
 
 ;; format-out: return format of the result
 (define format-out
@@ -261,5 +262,5 @@
 
 (define block
   (lambda (stmt state break return continue)
-    (prev-frame (M_state stmt (append init-state (list state)) (lambda (v) (break (prev-frame v))) return continue))))
+    (prev-frame (M_state stmt (append init-state (list state)) (lambda (v) (break (prev-frame v))) return (lambda (v)(continue (prev-frame v)))))))
 
