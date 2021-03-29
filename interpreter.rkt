@@ -58,6 +58,8 @@
 (define continueOutsideLoopError
   (lambda (env) (error 'invalid-continue)))
 
+(define uncaughtException
+  (lambda (env) (error 'invalid-throw)))
 ;; cdr-state: take a state return that state without its first binding 
 (define cdr-state
   (lambda (state)
@@ -143,7 +145,7 @@
       [(eq? (operator stmt) 'begin) (block (cdr stmt) state break return continue throw)]
       [(eq? (operator stmt) 'continue) (continue state)]
       [(eq? (operator stmt) 'try) (try-stmt stmt)]
-      [(eq? (operator stmt) 'throw) (throw stmt throw state)]
+      [(eq? (operator stmt) 'throw) (throw-stmt stmt throw state)]
       [else (error 'stmt-not-defined)])))
 
 ;function to modify state
@@ -236,7 +238,7 @@
      (lambda (filename)
        (call/cc
         (lambda (return)
-          (M_state (parser filename) init-state breakOutsideLoopError return continueOutsideLoopError)))))
+          (M_state (parser filename) init-state breakOutsideLoopError return continueOutsideLoopError uncaughtException)))))
 
 
 ;; format-out: return format of the result
@@ -275,7 +277,7 @@
 
 (define throw-catch-continuation
   (lambda (catch-stmt exception state break return continue throw)
-    (prev-frame (M_state catch-stmt (add exception (exception)(cons new-frame (list state)))
+    (prev-frame (M_state (make-catch-block catch-stmt) (add (exception-name catch-stmt)  (exception)(cons new-frame (list state)))
                          (lambda (v) (break (prev-frame v)))
                          return
                          (lambda (v) (continue (prev-frame v)))
@@ -288,5 +290,20 @@
            (new-break (break (M_state finally-block state break return continue throw)))
            (new-continue (continue (M_state finally-block state break return continue throw)))
            (new-return (lambda (v) (begin (M_state finally-block state break return continue throw) (return v))))
-           (new-throw (lambda (e) (throw-catch-continuation stmt e state break return continue throw))))
+           (new-throw (lambda (e) (throw-catch-continuation (get-catch-stmt stmt) e state break return continue throw))))
       (M_state (try-block stmt) state new-break new-return new-continue new-throw))))
+
+;; throw
+(define throw-stmt
+  (lambda (stmt state throw)
+    (throw (M_value (leftoperand stmt) state) state)))
+
+
+;;define
+(define get-catch-stmt caddr)
+
+(define make-catch-block
+  (lambda (stmt)
+    (cons 'begin (caddr (get-catch-stmt stmt)))))
+
+(define exception-name caadr) 
