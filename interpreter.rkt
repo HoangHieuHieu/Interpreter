@@ -43,6 +43,17 @@
 ;; prev-frame: get the state outside of the block
 (define prev-frame caddr)
 
+;;add-frame: add new frame to the state
+(define new-frame
+  (lambda (state)
+    (cons (new-frame) state )))
+
+;; remove-frame: remove frame from the state
+(define remove-frame 
+  (lambda (state)
+    (cdr state)))
+
+
 ;;init-state: initializes the state for the program
 (define init-state '(()()()))
 
@@ -246,3 +257,26 @@
     (prev-frame (M_state stmt (append new-frame (list state)) (lambda (v) (break (prev-frame v))) return continue))))
 
 
+;; throw
+(define throw-stmt
+  (lambda (stmt state throw)
+    (throw (M_value (leftoperand stmt) state) state)))
+
+
+;;throw-catch-try
+
+(define throw-catch-try
+  (lambda (catch-stmt state return break continue throw jump finally-block)
+    (cond 
+      ((null? catch-stmt)  (lambda (exception state) (throw exception (block finally-block  state return break continue throw))))
+      ((not (eq? 'catch (car catch-stmt)))           (error 'Invalid catch statement))
+      (else
+       (lambda (exception state)
+         (jump (block finally-block
+                      (remove-frame (throw-catch-statement-list (rightoperand catch-stmt)
+                                                                (add (car (leftoperand catch-stmt)) exception (add-frame state))
+                                                                return 
+                                                                (lambda (state2) (break (add-frame state2))) 
+                                                                (lambda (state2) (continue (add-frame state2))) 
+                                                                (lambda (v state2) (throw v (add-frame state2)))))
+                                                                return break continue throw)))))))
