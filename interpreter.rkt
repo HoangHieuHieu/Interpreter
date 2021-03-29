@@ -50,6 +50,10 @@
 (define breakOutsideLoopError
   (lambda (env) (error 'invalid-break)))
 
+(define get-try-block cadr)
+
+(define get-finally-block cadddr)
+
 ;;default continue: send error message
 (define continueOutsideLoopError
   (lambda (env) (error 'invalid-continue)))
@@ -126,18 +130,20 @@
 
 ; M_state: take a statement and a state, return the state after execute the statement on the state  
 (define M_state
-  (lambda (stmt state break return continue)
+  (lambda (stmt state break return continue throw)
     (cond
       [(null? stmt) state]
-      [(pair? (operator stmt)) (M_state (remaining_stmts stmt) (M_state (first_stmt stmt) state break return continue) break return continue)]
+      [(pair? (operator stmt)) (M_state (remaining_stmts stmt) (M_state (first_stmt stmt) state break return continue throw) break return continue throw)]
       [(eq? (operator stmt) 'var) (declare stmt state)]
       [(eq? (operator stmt) '=) (assign stmt state)]
-      [(eq? (operator stmt) 'if) (if-stmt stmt state break return continue)]
+      [(eq? (operator stmt) 'if) (if-stmt stmt state break return continue throw)]
       [(eq? (operator stmt) 'while) (while-stmt-break stmt state return)]
       [(eq? (operator stmt) 'return) (return-stmt stmt return state)]
       [(eq? (operator stmt) 'break) (break state)]
-      [(eq? (operator stmt) 'begin) (block (cdr stmt) state break return continue)]
+      [(eq? (operator stmt) 'begin) (block (cdr stmt) state break return continue throw)]
       [(eq? (operator stmt) 'continue) (continue state)]
+      [(eq? (operator stmt) 'try) (try-stmt stmt)]
+      [(eq? (operator stmt) 'throw) (throw stmt throw state)]
       [else (error 'stmt-not-defined)])))
 
 ;function to modify state
@@ -207,10 +213,10 @@
 ; if: perform an if statement
 ;; if-stmt: perform an if statement
 (define if-stmt
-  (lambda (stmt state break return continue)
+  (lambda (stmt state break return continue throw)
     (cond
-      ((M_boolean (condition stmt) state) (M_state (if-body1 stmt) state break return continue))
-      ((not (null? (if-body2 stmt))) (M_state (if-body2 stmt) state break return continue))
+      ((M_boolean (condition stmt) state) (M_state (if-body1 stmt) state break return continue throw))
+      ((not (null? (if-body2 stmt))) (M_state (if-body2 stmt) state break return continue throw))
       (else state))))
 
 ;; M_value: takes an expression, return the value of it (either a boolean or an integer)
@@ -242,7 +248,45 @@
       [else  'false])))
 
 (define block
-  (lambda (stmt state break return continue)
-    (prev-frame (M_state stmt (append new-frame (list state)) (lambda (v) (break (prev-frame v))) return continue))))
+  (lambda (stmt state break return continue throw)
+    (prev-frame (M_state stmt (append new-frame (list state)) (lambda (v) (break (prev-frame v))) return (lambda (v) (continue (prev-frame v))) throw))))
 
+;(define interpret-try
+;  (lambda (statement environment return break continue throw)
+;    (call/cc
+;     (lambda (jump)
+;       (let* ((finally-block (make-finally-block (get-finally statement)))
+;              (try-block (make-try-block (get-try statement)))
+;              (new-return (lambda (v) (begin (interpret-block finally-block environment return break continue throw) (return v))))
+;              (new-break (lambda (env) (break (interpret-block finally-block env return break continue throw))))
+;              (new-continue (lambda (env) (continue (interpret-block finally-block env return break continue throw))))
+;              (new-throw (create-throw-catch-continuation (get-catch statement) environment return break continue throw jump finally-block)))
+;         (interpret-block finally-block
+;                          (interpret-block try-block environment new-return new-break new-continue new-throw)
+;                          return break continue throw))))))
 
+(define make-try-block
+  (lambda (stmt)
+    (cons 'begin (get-try-block stmt))))
+
+(define make-finally-block
+  (lambda (stmt)
+    (cons 'begin (cadr (get-finally-block stmt)))))
+
+(define throw-catch-continuation
+  (lambda (catch-stmt exception state break return continue throw)
+    (prev-frame (M_state catch-stmt (add exception (exception)(cons new-frame (list state)))
+                         (lambda (v) (break (prev-frame v)))
+                         return
+                         (lambda (v) (continue (prev-frame v)))
+                         throw))))
+
+(define try-stmt
+  (lambda (stmt state break return continue throw)
+    (let* ((finally-block (make-finally-block stmt))
+           (try-block (make-try-block stmt))
+           (new-break (break (M_state finally-block state break return continue throw)))
+           (new-continue (continue (M_state finally-block state break return continue throw)))
+           (new-return (lambda (v) (begin (M_state finally-block state break return continue throw) (return v))))
+           (new-throw (lambda (e) (throw-catch-continuation stmt e state break return continue throw))))
+      (M_state (try-block stmt) state new-break new-return new-continue new-throw))))
