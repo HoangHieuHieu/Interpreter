@@ -139,13 +139,13 @@
       [(eq? (operator stmt) 'var) (declare stmt state)]
       [(eq? (operator stmt) '=) (assign stmt state)]
       [(eq? (operator stmt) 'if) (if-stmt stmt state break return continue throw)]
-      [(eq? (operator stmt) 'while) (while-stmt-break stmt state return)]
+      [(eq? (operator stmt) 'while) (while-stmt-break stmt state return throw)]
       [(eq? (operator stmt) 'return) (return-stmt stmt return state)]
       [(eq? (operator stmt) 'break) (break state)]
       [(eq? (operator stmt) 'begin) (block (cdr stmt) state break return continue throw)]
       [(eq? (operator stmt) 'continue) (continue state)]
-      [(eq? (operator stmt) 'try) (try-stmt stmt)]
-      [(eq? (operator stmt) 'throw) (throw-stmt stmt throw state)]
+      [(eq? (operator stmt) 'try) (try-stmt stmt state break return continue throw)]
+      [(eq? (operator stmt) 'throw) (throw-stmt stmt state throw)]
       [else (error 'stmt-not-defined)])))
 
 ;function to modify state
@@ -202,12 +202,12 @@
       state)))
 
 (define while-stmt-break
-  (lambda (stmt state return)
+  (lambda (stmt state return throw)
     (call/cc
      (lambda (break)
        (letrec ((loop (lambda (condition body state)
                         (if (M_boolean condition state)
-                            (loop condition body (M_state body state break return (lambda (v) (break (loop condition body v)))))
+                            (loop condition body (M_state body state break return (lambda (v) (break (loop condition body v))) throw))
                                                           state))))
          (loop (condition stmt) (while-body stmt) state))))))
 
@@ -276,27 +276,34 @@
     (cons 'begin (cadr (get-finally-block stmt)))))
 
 (define throw-catch-continuation
-  (lambda (catch-stmt exception state break return continue throw)
-    (prev-frame (M_state (make-catch-block catch-stmt) (add (exception-name catch-stmt)  (exception)(cons new-frame (list state)))
-                         (lambda (v) (break (prev-frame v)))
-                         return
-                         (lambda (v) (continue (prev-frame v)))
-                         throw))))
+  (lambda (catch-stmt exception state break return continue throw catch-break finally-block)
+    (cond
+      ((null? catch-stmt) (M_state finally-block state break return continue throw))
+      ((not (eq? (operator catch-stmt) 'catch)) (error 'invalid-catch-statement))
+      (else (catch-break (M_state finally-block (prev-frame (M_state (make-catch-block catch-stmt) (add (exception-name catch-stmt) exception (append new-frame (list state)))
+                                                (lambda (v1) (break (prev-frame v1)))
+                                                return
+                                                (lambda (v1) (continue (prev-frame v1)))
+                                                (lambda (v1 v2) (throw v1 (prev-frame v2))))) break return continue throw))))))
 
 (define try-stmt
   (lambda (stmt state break return continue throw)
-    (let* ((finally-block (make-finally-block stmt))
-           (try-block (make-try-block stmt))
-           (new-break (break (M_state finally-block state break return continue throw)))
-           (new-continue (continue (M_state finally-block state break return continue throw)))
-           (new-return (lambda (v) (begin (M_state finally-block state break return continue throw) (return v))))
-           (new-throw (lambda (e) (throw-catch-continuation (get-catch-stmt stmt) e state break return continue throw))))
-      (M_state (try-block stmt) state new-break new-return new-continue new-throw))))
+    (call/cc
+     (lambda (catch-break)
+       (let* ((finally-block (make-finally-block stmt))
+              (try-block (make-try-block stmt))
+              (new-break (lambda (v) (break (M_state finally-block v break return continue throw))))
+              (new-continue (lambda (v) (continue (M_state finally-block v break return continue throw))))
+              (new-return (lambda (v) (begin (M_state finally-block state break return continue throw) (return v))))
+              (new-throw (lambda (ex v)  (throw-catch-continuation (get-catch-stmt stmt) ex v break return continue throw catch-break finally-block))))
+         (M_state finally-block
+                  (M_state try-block state new-break new-return new-continue new-throw)
+                  break return continue throw))))))
 
 ;; throw
 (define throw-stmt
   (lambda (stmt state throw)
-    (throw (M_value (leftoperand stmt) state) state)))
+    (throw (format-out (M_value (cadr stmt) state)) state)))
 
 
 ;;define
@@ -304,6 +311,6 @@
 
 (define make-catch-block
   (lambda (stmt)
-    (cons 'begin (caddr (get-catch-stmt stmt)))))
+    (cons 'begin (get-catch-stmt stmt))))
 
 (define exception-name caadr) 
