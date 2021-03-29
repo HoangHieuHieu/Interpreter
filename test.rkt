@@ -1,15 +1,11 @@
-var x;
+var x = 0;
+var result = 0;
 
-try {
-  x = 20;
-  if (x < 0)
-    throw 10;
-  x = x + 5;
+while (x < 10) {
+  if (result > 15) {
+    return result;
+  }
+  result = result + x;
+  x = x + 1;
 }
-catch(e) {
-  x = e;
-}
-finally {
-  x = x + 100;
-}
-return x;
+return result;

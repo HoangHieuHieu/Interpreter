@@ -59,7 +59,7 @@
   (lambda (env) (error 'invalid-continue)))
 
 (define uncaughtException
-  (lambda (env) (error 'invalid-throw)))
+  (lambda (env v) (error 'invalid-throw)))
 ;; cdr-state: take a state return that state without its first binding 
 (define cdr-state
   (lambda (state)
@@ -73,7 +73,6 @@
       [(null? (name-list state)) (declared? var (prev-frame state))]
       [(eq? (car (name-list state)) var) #t]
       [else (declared? var (cdr-state state))])))
-
 
 ;; M_boolean: returns the boolean value for given condition
 (define M_boolean
@@ -129,7 +128,6 @@
       ((eq? var (car (name-list state))) (car (val-list state)))
       (else (getVar var (cdr-state state))))))
 
-
 ; M_state: take a statement and a state, return the state after execute the statement on the state  
 (define M_state
   (lambda (stmt state break return continue throw)
@@ -139,7 +137,7 @@
       [(eq? (operator stmt) 'var) (declare stmt state)]
       [(eq? (operator stmt) '=) (assign stmt state)]
       [(eq? (operator stmt) 'if) (if-stmt stmt state break return continue throw)]
-      [(eq? (operator stmt) 'while) (while-stmt-break stmt state return throw)]
+      [(eq? (operator stmt) 'while) (while-stmt stmt state return throw)]
       [(eq? (operator stmt) 'return) (return-stmt stmt return state)]
       [(eq? (operator stmt) 'break) (break state)]
       [(eq? (operator stmt) 'begin) (block (cdr stmt) state break return continue throw)]
@@ -194,14 +192,8 @@
       [(null? (cddr stmt)) (add (leftoperand stmt) 'null state)]
       [else (add (leftoperand stmt) (M_value (rightoperand stmt) state) state)])))
 
-;; while-stmt: perform a while statement
+;; while-stmt: perform a while statement with break and continue
 (define while-stmt
-  (lambda(stmt state)
-    (if (M_boolean (condition stmt) state)
-      (while-stmt stmt (M_state (while-body stmt) state))
-      state)))
-
-(define while-stmt-break
   (lambda (stmt state return throw)
     (call/cc
      (lambda (break)
@@ -212,7 +204,7 @@
          (loop (condition stmt) (while-body stmt) state))))))
 
                              
-; if: perform an if statement
+;; if: perform an if statement
 ;; if-stmt: perform an if statement
 (define if-stmt
   (lambda (stmt state break return continue throw)
@@ -249,32 +241,34 @@
       [(eq? out #t) 'true]
       [else  'false])))
 
-(define block
-  (lambda (stmt state break return continue throw)
-    (prev-frame (M_state stmt (append new-frame (list state)) (lambda (v) (break (prev-frame v))) return (lambda (v) (continue (prev-frame v))) throw))))
+;; return the catch statement after removing "catch"
+(define get-catch-stmt caddr)
 
-;(define interpret-try
-;  (lambda (statement environment return break continue throw)
-;    (call/cc
-;     (lambda (jump)
-;       (let* ((finally-block (make-finally-block (get-finally statement)))
-;              (try-block (make-try-block (get-try statement)))
-;              (new-return (lambda (v) (begin (interpret-block finally-block environment return break continue throw) (return v))))
-;              (new-break (lambda (env) (break (interpret-block finally-block env return break continue throw))))
-;              (new-continue (lambda (env) (continue (interpret-block finally-block env return break continue throw))))
-;              (new-throw (create-throw-catch-continuation (get-catch statement) environment return break continue throw jump finally-block)))
-;         (interpret-block finally-block
-;                          (interpret-block try-block environment new-return new-break new-continue new-throw)
-;                          return break continue throw))))))
-
+;; create the try block in the format that can be interpreted by the code after removing the "try"
 (define make-try-block
   (lambda (stmt)
     (cons 'begin (get-try-block stmt))))
 
+;; return the catch block in the format that can be interpreted by the code
+(define make-catch-block
+  (lambda (stmt)
+    (cons 'begin (get-catch-stmt stmt))))
+
+;; return the exception variable
+(define exception-name caadr) 
+;; block: take in a block of statement, return the state after interpret the block of statements
+(define block
+  (lambda (stmt state break return continue throw)
+    (prev-frame (M_state stmt (append new-frame (list state)) (lambda (v) (break (prev-frame v))) return (lambda (v) (continue (prev-frame v))) throw))))
+
+;; create the finally block in the format that can be interpreted by the code
 (define make-finally-block
   (lambda (stmt)
-    (cons 'begin (cadr (get-finally-block stmt)))))
+    (if (null? (get-finally-block stmt))
+        '()
+        (cons 'begin (cadr (get-finally-block stmt))))))
 
+;; create the continuation for the throw statement. It runs when the throw statement is called. If there is no catch, return the current state. Otherwise, interpret the catch block and return the state after the catch block
 (define throw-catch-continuation
   (lambda (catch-stmt exception state break return continue throw catch-break finally-block)
     (cond
@@ -284,8 +278,9 @@
                                                 (lambda (v1) (break (prev-frame v1)))
                                                 return
                                                 (lambda (v1) (continue (prev-frame v1)))
-                                                (lambda (v1 v2) (throw v1 (prev-frame v2))))) break return continue throw))))))
+                                                (lambda (ex v2) (throw ex (prev-frame v2))))) break return continue throw))))))
 
+;; try-catch statement: take in the try-catch block and finally statement. Interpret the try block with new break, continue and throw. Interpreting the finally block with the state returned after interpreting the try block. 
 (define try-stmt
   (lambda (stmt state break return continue throw)
     (call/cc
@@ -300,17 +295,7 @@
                   (M_state try-block state new-break new-return new-continue new-throw)
                   break return continue throw))))))
 
-;; throw
+;; throw-stmt: take in the throw statement and call the throw continuation.
 (define throw-stmt
   (lambda (stmt state throw)
     (throw (format-out (M_value (cadr stmt) state)) state)))
-
-
-;;define
-(define get-catch-stmt caddr)
-
-(define make-catch-block
-  (lambda (stmt)
-    (cons 'begin (get-catch-stmt stmt))))
-
-(define exception-name caadr) 
