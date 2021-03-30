@@ -252,14 +252,14 @@
 ;; return the catch block in the format that can be interpreted by the code
 (define make-catch-block
   (lambda (stmt)
-    (cons 'begin (get-catch-stmt stmt))))
+    (get-catch-stmt stmt)))
 
 ;; return the exception variable
 (define exception-name caadr) 
 ;; block: take in a block of statement, return the state after interpret the block of statements
 (define block
   (lambda (stmt state break return continue throw)
-    (prev-frame (M_state stmt (append new-frame (list state)) (lambda (v) (break (prev-frame v))) return (lambda (v) (continue (prev-frame v))) throw))))
+    (prev-frame (M_state stmt (append new-frame (list state)) (lambda (v) (break (prev-frame v))) return (lambda (v) (continue (prev-frame v))) (lambda (ex v) (throw ex (prev-frame v)))))))
 
 ;; create the finally block in the format that can be interpreted by the code
 (define make-finally-block
