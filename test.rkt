@@ -1,11 +1,26 @@
 var x = 0;
-var result = 0;
+var j = 1;
 
-while (x < 10) {
-  if (result > 15) {
-    return result;
+try {
+  while (j >= 0) {
+    var i = 1;
+    while (i >= 0) {
+      try {
+        if (i == 0)
+          throw 1000000;
+        x = x + 10*i / i;
+      }
+      catch(e) {
+        if (j == 0)
+          throw 1000000;
+        x = x + e / j;
+      }
+      i = i - 1;
+    }
+    j = j - 1;
   }
-  result = result + x;
-  x = x + 1;
 }
-return result;
+catch (e2) {
+  x = x * 2;
+}
+return x;

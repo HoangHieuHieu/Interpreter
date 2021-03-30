@@ -46,24 +46,35 @@
 ;;init-state: initializes the state for the program
 (define init-state '(()()()))
 
-;; default break: send error message
+;; get the try block
+(define get-try-block cadr)
+
+;; get the finally block
+(define get-finally-block cadddr)
+
+;; default break: send break error message
 (define breakOutsideLoopError
   (lambda (env) (error 'invalid-break)))
 
-(define get-try-block cadr)
-
-(define get-finally-block cadddr)
-
-;;default continue: send error message
+;;default continue: send continue error message
 (define continueOutsideLoopError
   (lambda (env) (error 'invalid-continue)))
 
+;;default throw: send throw error message
 (define uncaughtException
   (lambda (env v) (error 'invalid-throw)))
+
 ;; cdr-state: take a state return that state without its first binding 
 (define cdr-state
   (lambda (state)
     (list (cdr (name-list state)) (cdr (val-list state)) (prev-frame state))))
+
+;; interpret: Take in a file name and interpret the code in the file
+(define interpret
+     (lambda (filename)
+       (call/cc
+        (lambda (return)
+          (M_state (parser filename) init-state breakOutsideLoopError return continueOutsideLoopError uncaughtException)))))
 
 ;; declared?: check if a var is declared
 (define declared?
@@ -146,7 +157,7 @@
       [(eq? (operator stmt) 'throw) (throw-stmt stmt state throw)]
       [else (error 'stmt-not-defined)])))
 
-;function to modify state
+;; modify-state: take in a variable, a value, and a state. Return a state after binding the value to the variable.
 (define modify-state
   (lambda (var val state)
     (call/cc
@@ -157,8 +168,8 @@
          ((eq? (car (name-list state)) var) (list (name-list state) (cons val (cdr (val-list state))) (prev-frame state)))
          (else (add (car (name-list state)) (car (val-list state)) (modify-state var val (cdr-state state)))))))))
 
-;; return: return a value
-;; return-stmt: return a value
+
+;; return-stmt: take in a return statement and return the value after calling the return continuation
 (define return-stmt
   (lambda (stmt return state)
     (return (format-out (M_value (cadr stmt) state)))))
@@ -202,7 +213,6 @@
                             (loop condition body (M_state body state break return (lambda (v) (break (loop condition body v))) throw))
                                                           state))))
          (loop (condition stmt) (while-body stmt) state))))))
-
                              
 ;; if: perform an if statement
 ;; if-stmt: perform an if statement
@@ -224,14 +234,6 @@
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state)]
       [else (M_boolean expression state)])))
-
-;; interpret: Take in a file name and interpret the code in the file
-(define interpret
-     (lambda (filename)
-       (call/cc
-        (lambda (return)
-          (M_state (parser filename) init-state breakOutsideLoopError return continueOutsideLoopError uncaughtException)))))
-
 
 ;; format-out: return format of the result
 (define format-out
@@ -255,7 +257,8 @@
     (get-catch-stmt stmt)))
 
 ;; return the exception variable
-(define exception-name caadr) 
+(define exception-name caadr)
+
 ;; block: take in a block of statement, return the state after interpret the block of statements
 (define block
   (lambda (stmt state break return continue throw)
@@ -298,4 +301,4 @@
 ;; throw-stmt: take in the throw statement and call the throw continuation.
 (define throw-stmt
   (lambda (stmt state throw)
-    (throw (format-out (M_value (cadr stmt) state)) state)))
+    (throw (M_value (cadr stmt) state) state)))
