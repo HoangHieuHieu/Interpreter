@@ -88,7 +88,7 @@
      (lambda (filename)
        (call/cc
         (lambda (return)
-          (M_state (parser filename) init-state breakOutsideLoopError return continueOutsideLoopError uncaughtException)))))
+          (format-out (M_value '(funcall main) (M_state_func (parser filename) init-state uncaughtException) uncaughtException))))))
 
 ;; declared?: check if a var is declared
 (define declared?
@@ -101,7 +101,7 @@
 
 ;; M_boolean: returns the boolean value for given condition
 (define M_boolean
-  (lambda (condition state)
+  (lambda (condition state throw)
     (cond
       ((null? condition) #t)
       ((eq? condition 'true)   #t)
@@ -109,16 +109,16 @@
       ((not (or (boolean? condition) (list? condition))) (getVar condition state))
       ((boolean? (car condition))   (return-stmt (car condition) state))
       ; boolean operation 
-      ((eq? (operator condition) '&&)    (and (M_boolean(leftoperand condition) state)   (M_boolean(rightoperand condition) state)))          
-      ((eq? (operator condition) '||)    (or (M_boolean(leftoperand condition) state)    (M_boolean(rightoperand condition) state)))     
-      ((eq? (operator condition) '!)     (not (M_boolean (leftoperand condition) state))) 
+      ((eq? (operator condition) '&&)    (and (M_boolean(leftoperand condition) state throw)   (M_boolean(rightoperand condition) state throw)))          
+      ((eq? (operator condition) '||)    (or (M_boolean(leftoperand condition) state throw)    (M_boolean(rightoperand condition) state throw)))     
+      ((eq? (operator condition) '!)     (not (M_boolean (leftoperand condition) state throw))) 
       ; comparision operator
-      ((eq? (operator condition) '<)    (< (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (operator condition) '>)    (> (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (operator condition) '<=)   (<= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (operator condition) '>=)   (>= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (operator condition) '==)   (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state)))
-      ((eq? (operator condition) '!=)   (not (= (M_value (leftoperand condition) state) (M_value (rightoperand condition) state))))
+      ((eq? (operator condition) '<)    (< (M_value (leftoperand condition) state throw) (M_value (rightoperand condition) state throw)))
+      ((eq? (operator condition) '>)    (> (M_value (leftoperand condition) state throw) (M_value (rightoperand condition) state throw)))
+      ((eq? (operator condition) '<=)   (<= (M_value (leftoperand condition) state throw) (M_value (rightoperand condition) state throw)))
+      ((eq? (operator condition) '>=)   (>= (M_value (leftoperand condition) state throw) (M_value (rightoperand condition) state throw)))
+      ((eq? (operator condition) '==)   (= (M_value (leftoperand condition) state throw) (M_value (rightoperand condition) state throw)))
+      ((eq? (operator condition) '!=)   (not (= (M_value (leftoperand condition) state throw) (M_value (rightoperand condition) state throw))))
       (else (error 'bad-boolean)))))
 
 ;; add: returns the state after adding new variable and its value
@@ -129,18 +129,18 @@
       ((declared? var state)         (add var value (remove var state))))))
 
 (define M_integer
-  (lambda (expression state)
+  (lambda (expression state throw)
     (cond
       ((null? expression) 0)
       ((number? expression) expression)
       ((not (list? expression)) (getVar expression state))
-      ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (M_value (leftoperand expression) state)))
-      ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (M_value (leftoperand expression) state)))
-      ((eq? (operator expression) '+) (+ (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      ((eq? (operator expression) '-) (- (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      ((eq? (operator expression) '*) (* (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      ((eq? (operator expression) '/) (quotient (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
-      ((eq? (operator expression) '%) (remainder (M_value (leftoperand expression) state) (M_value (rightoperand expression) state)))
+      ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (M_value (leftoperand expression) state throw)))
+      ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (M_value (leftoperand expression) state throw)))
+      ((eq? (operator expression) '+) (+ (M_value (leftoperand expression) state throw) (M_value (rightoperand expression) state throw)))
+      ((eq? (operator expression) '-) (- (M_value (leftoperand expression) state throw) (M_value (rightoperand expression) state throw)))
+      ((eq? (operator expression) '*) (* (M_value (leftoperand expression) state throw) (M_value (rightoperand expression) state throw)))
+      ((eq? (operator expression) '/) (quotient (M_value (leftoperand expression) state throw) (M_value (rightoperand expression) state throw)))
+      ((eq? (operator expression) '%) (remainder (M_value (leftoperand expression) state throw) (M_value (rightoperand expression) state throw)))
       (else (error 'bad-operator)))))
 
 ;; getVar: takes in a variable and returns its value 
@@ -167,24 +167,24 @@
       (else (get-func-state f-name (cdr-state state))))))
 
 (define create-bindings
-  (lambda (formal-params actual-params cur-state new-state)
+  (lambda (formal-params actual-params cur-state new-state throw)
     (if (null? formal-params) new-state
         (create-bindings (cdr formal-params)
                          (cdr actual-params)
                          cur-state
-                         (add (car formal-params) (M_value (car actual-params) cur-state) new-state)))))
+                         (add (car formal-params) (M_value (car actual-params) cur-state throw) new-state)))))
 
 (define func-exe
-  (lambda (funcall state)
+  (lambda (funcall state throw)
     (call/cc
      (lambda (return)
-       (let* ((closure (getVar (car funcall)))
+       (let* ((closure (getVar (car funcall) state))
               (body (car closure))
               (formal-params (cadr closure))
               (actual-params (cdr funcall))
               (f-state-1 ((caddr closure) state))
-              (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1))))
-         (M_state body f-state-2 breakOutsideLoopError return continueOutsideLoopError return))))))
+              (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1) throw)))
+         (M_state body f-state-2 breakOutsideLoopError (lambda (v) (return (car v))) continueOutsideLoopError throw))))))
               
 ; M_state: take a statement and a state, return the state after execute the statement on the state  
 (define M_state
@@ -192,9 +192,9 @@
     (cond
       [(null? stmt) state]
       [(pair? (operator stmt)) (M_state (remaining_stmts stmt) (M_state (first_stmt stmt) state break return continue throw) break return continue throw)]
-      [(eq? (operator stmt) 'function) (add (get-func-name stmt) (func-closure stmt) state)]
-      [(eq? (operator stmt) 'var) (declare stmt state)]
-      [(eq? (operator stmt) '=) (assign stmt state)]
+      [(eq? (operator stmt) 'function)  (add (get-func-name stmt) (func-closure stmt) state)]
+      [(eq? (operator stmt) 'var) (declare stmt state throw)]
+      [(eq? (operator stmt) '=) (assign stmt state throw)]
       [(eq? (operator stmt) 'if) (if-stmt stmt state break return continue throw)]
       [(eq? (operator stmt) 'while) (while-stmt stmt state return throw)]
       [(eq? (operator stmt) 'return) (return-stmt stmt return state)]
@@ -204,6 +204,15 @@
       [(eq? (operator stmt) 'try) (try-stmt stmt state break return continue throw)]
       [(eq? (operator stmt) 'throw) (throw-stmt stmt state throw)]
       [else (error 'stmt-not-defined)])))
+
+(define M_state_func
+  (lambda (stmt state throw)
+    (cond
+      [(null? stmt) state]
+      [(pair? (operator stmt)) (M_state_func (remaining_stmts stmt) (M_state_func (first_stmt stmt) state throw) throw)]
+      [(eq? (operator stmt) 'var) (declare stmt state throw)]
+      [(eq? (operator stmt) 'function) (add (get-func-name stmt) (func-closure stmt) state)]
+      [else (error 'invalid-stmt)])))
 
 ;; modify-state: take in a variable, a value, and a state. Return a state after binding the value to the variable.
 (define modify-state
@@ -219,14 +228,35 @@
 
 ;; return-stmt: take in a return statement and return the value after calling the return continuation
 (define return-stmt
-  (lambda (stmt return state)
-    (return (format-out (M_value (cadr stmt) state)))))
+  (lambda (stmt return state throw)
+    (return (list (M_value (cadr stmt) state throw) state))))
 
+;; return the state of side-effect
+(define M_state_exp
+  (lambda (exp state throw)
+    (cond
+      [(not (pair? exp)) state]
+      [(eq? (operator exp) '=) (assign exp state throw)]
+      ((eq? (operator exp) 'funcall) (M_state_func exp state throw))
+      (else state))))
+
+(define M_state_funcall_result_env
+  (lambda (funcall state throw)
+    (call/cc
+     (lambda (return)
+       (let* ((closure (getVar (car funcall) state))
+              (body (car closure))
+              (formal-params (cadr closure))
+              (actual-params (cdr funcall))
+              (f-state-1 ((caddr closure) state))
+              (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1) throw)))
+         (M_state body f-state-2 breakOutsideLoopError (lambda (v) (return (cadr v))) continueOutsideLoopError return throw))))))
+    
 ;; assign: binding a value to a variable
 (define assign
-  (lambda (stmt state)
+  (lambda (stmt state throw)
     (if (or (declared? (leftoperand stmt) state) (eq? (operator stmt) 'var))
-    (modify-state (leftoperand stmt) (M_value (rightoperand stmt) state) state)
+    (modify-state (leftoperand stmt) (M_value (rightoperand stmt) state throw) (M_state_exp (rightoperand stmt) state throw))
     (error 'undeclared-variables))))
     
 ;; remove-cps: helper function for remove
@@ -245,11 +275,11 @@
 
 ;; declare: add a var binding into a state
 (define declare
-  (lambda (stmt state)
+  (lambda (stmt state throw)
     (cond
       [(declared? (leftoperand stmt) state) (error 'used-variable)]
       [(null? (cddr stmt)) (add (leftoperand stmt) 'null state)]
-      [else (add (leftoperand stmt) (M_value (rightoperand stmt) state) state)])))
+      [else (add (leftoperand stmt) (M_value (rightoperand stmt) state throw) (M_state_exp (rightoperand stmt) state throw))])))
 
 ;; while-stmt: perform a while statement with break and continue
 (define while-stmt
@@ -273,16 +303,16 @@
 
 ;; M_value: takes an expression, return the value of it (either a boolean or an integer)
 (define M_value
-  (lambda (expression state)
+  (lambda (expression state throw)
     (cond
       [(eq? expression 'true) #t]
       [(eq? expression 'false)#f]
       [(number? expression) expression]
       [(not (list? expression)) (getVar expression state)]
-      [(eq? (operator expression) 'funcall) (func-exe (cdr expression) state)]
+      [(eq? (operator expression) 'funcall) (func-exe (cdr expression) state throw)]
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
-       (M_integer expression state)]
-      [else (M_boolean expression state)])))
+       (M_integer expression state throw)]
+      [else (M_boolean expression state throw)])))
 
 ;; format-out: return format of the result
 (define format-out

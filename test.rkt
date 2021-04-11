@@ -1,5 +1,6 @@
 var x = 14;
 var y = 3 * x - 7;
+var a = (x = x + 1);
 function gcd(a,b) {
   if (a < b) {
     var temp = a;
