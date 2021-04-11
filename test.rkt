@@ -1,20 +1,16 @@
-var x = 14;
-var y = 3 * x - 7;
-var a = (x = x + 1);
-function gcd(a,b) {
-  if (a < b) {
-    var temp = a;
-    a = b;
-    b = temp;
-  }
-  var r = a % b;
-  while (r != 0) {
-    a = b;
-    b = r;
-    r = a % b;
-  }
-  return b;
+var x = 0;
+var y = 0;
+
+function setx(a) {
+  x = a;
 }
-function main () {
-  return gcd(x,y);
+
+function sety(b) {
+  y = b;
+}
+
+function main() {
+  setx(5);
+  sety(7);
+  return x * y;
 }

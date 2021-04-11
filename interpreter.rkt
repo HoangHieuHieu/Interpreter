@@ -111,7 +111,9 @@
       ; boolean operation 
       ((eq? (operator condition) '&&)    (and (M_boolean(leftoperand condition) state throw)   (M_boolean(rightoperand condition) state throw)))          
       ((eq? (operator condition) '||)    (or (M_boolean(leftoperand condition) state throw)    (M_boolean(rightoperand condition) state throw)))     
-      ((eq? (operator condition) '!)     (not (M_boolean (leftoperand condition) state throw))) 
+      ((eq? (operator condition) '!)     (not (M_boolean (leftoperand condition) state throw)))
+      ; boolean function
+      ((eq? (operator condition) 'funcall) (func-exe (cdr condition) state throw))
       ; comparision operator
       ((eq? (operator condition) '<)    (< (M_value (leftoperand condition) state throw) (M_value (rightoperand condition) state throw)))
       ((eq? (operator condition) '>)    (> (M_value (leftoperand condition) state throw) (M_value (rightoperand condition) state throw)))
@@ -172,7 +174,8 @@
         (create-bindings (cdr formal-params)
                          (cdr actual-params)
                          cur-state
-                         (add (car formal-params) (M_value (car actual-params) cur-state throw) new-state)))))
+                         (add (car formal-params) (M_value (car actual-params) cur-state throw) (M_state_exp (car actual-params) new-state throw))
+                         throw))))
 
 (define func-exe
   (lambda (funcall state throw)
@@ -193,11 +196,12 @@
       [(null? stmt) state]
       [(pair? (operator stmt)) (M_state (remaining_stmts stmt) (M_state (first_stmt stmt) state break return continue throw) break return continue throw)]
       [(eq? (operator stmt) 'function)  (add (get-func-name stmt) (func-closure stmt) state)]
+      [(eq? (operator stmt) 'funcall) (M_state_funcall_result_env (cdr stmt) state throw)]
       [(eq? (operator stmt) 'var) (declare stmt state throw)]
       [(eq? (operator stmt) '=) (assign stmt state throw)]
       [(eq? (operator stmt) 'if) (if-stmt stmt state break return continue throw)]
       [(eq? (operator stmt) 'while) (while-stmt stmt state return throw)]
-      [(eq? (operator stmt) 'return) (return-stmt stmt return state)]
+      [(eq? (operator stmt) 'return) (return-stmt stmt return state throw)]
       [(eq? (operator stmt) 'break) (break state)]
       [(eq? (operator stmt) 'begin) (block (cdr stmt) state break return continue throw)]
       [(eq? (operator stmt) 'continue) (continue state)]
@@ -250,8 +254,8 @@
               (actual-params (cdr funcall))
               (f-state-1 ((caddr closure) state))
               (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1) throw)))
-         (M_state body f-state-2 breakOutsideLoopError (lambda (v) (return (cadr v))) continueOutsideLoopError return throw))))))
-    
+         (M_state body f-state-2 breakOutsideLoopError (lambda (v) (return (prev-frame (cadr v)))) continueOutsideLoopError throw))))))
+   
 ;; assign: binding a value to a variable
 (define assign
   (lambda (stmt state throw)
@@ -277,7 +281,7 @@
 (define declare
   (lambda (stmt state throw)
     (cond
-      [(declared? (leftoperand stmt) state) (error 'used-variable)]
+      ;[(declared? (leftoperand stmt) state) (error 'used-variable)]
       [(null? (cddr stmt)) (add (leftoperand stmt) 'null state)]
       [else (add (leftoperand stmt) (M_value (rightoperand stmt) state throw) (M_state_exp (rightoperand stmt) state throw))])))
 
@@ -287,7 +291,7 @@
     (call/cc
      (lambda (break)
        (letrec ((loop (lambda (condition body state)
-                        (if (M_boolean condition state)
+                        (if (M_boolean condition state throw)
                             (loop condition body (M_state body state break return (lambda (v) (break (loop condition body v))) throw))
                                                           state))))
          (loop (condition stmt) (while-body stmt) state))))))
@@ -297,7 +301,7 @@
 (define if-stmt
   (lambda (stmt state break return continue throw)
     (cond
-      ((M_boolean (condition stmt) state) (M_state (if-body1 stmt) state break return continue throw))
+      ((M_boolean (condition stmt) state throw) (M_state (if-body1 stmt) state break return continue throw))
       ((not (null? (if-body2 stmt))) (M_state (if-body2 stmt) state break return continue throw))
       (else state))))
 
@@ -310,6 +314,7 @@
       [(number? expression) expression]
       [(not (list? expression)) (getVar expression state)]
       [(eq? (operator expression) 'funcall) (func-exe (cdr expression) state throw)]
+      [(eq? (operator expression) '=) (getVar (leftoperand expression) (M_state_exp (leftoperand expression) state throw))] 
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state throw)]
       [else (M_boolean expression state throw)])))
