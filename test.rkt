@@ -1,26 +1,19 @@
-var x = 0;
-var j = 1;
-
-try {
-  while (j >= 0) {
-    var i = 1;
-    while (i >= 0) {
-      try {
-        if (i == 0)
-          throw 1000000;
-        x = x + 10*i / i;
-      }
-      catch(e) {
-        if (j == 0)
-          throw 1000000;
-        x = x + e / j;
-      }
-      i = i - 1;
-    }
-    j = j - 1;
+var x = 14;
+var y = 3 * x - 7;
+function gcd(a,b) {
+  if (a < b) {
+    var temp = a;
+    a = b;
+    b = temp;
   }
+  var r = a % b;
+  while (r != 0) {
+    a = b;
+    b = r;
+    r = a % b;
+  }
+  return b;
 }
-catch (e2) {
-  x = x * 2;
+function main () {
+  return gcd(x,y);
 }
-return x;

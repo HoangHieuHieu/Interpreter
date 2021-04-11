@@ -1,6 +1,6 @@
 #lang racket
-(require "simpleParser.rkt")
-
+;(require "simpleParser.rkt")
+(require "functionParser.rkt")
 ;; abstractions 
 
 ;; operator: Extracts the operator from the expression
@@ -40,6 +40,11 @@
 ;; new-frame: initializes new frame for the state
 (define new-frame '(()()))
 
+;; add-frame: add new frame on to the current state
+(define add-frame
+  (lambda (state)
+    (append new-frame (list state))))
+
 ;; prev-frame: get the state outside of the block
 (define prev-frame caddr)
 
@@ -51,6 +56,15 @@
 
 ;; get the finally block
 (define get-finally-block cadddr)
+
+;;get formal params list
+(define get-func-formal-params caddr)
+
+;;get function body
+(define get-func-body cadddr)
+
+;;get function name
+(define get-func-name cadr)
 
 ;; default break: send break error message
 (define breakOutsideLoopError
@@ -139,12 +153,46 @@
       ((eq? var (car (name-list state))) (car (val-list state)))
       (else (getVar var (cdr-state state))))))
 
+;;create function closure
+(define func-closure
+  (lambda (stmt)
+    (list (get-func-body stmt) (get-func-formal-params stmt) (lambda (state) (get-func-state (get-func-name stmt) state)))))
+
+(define get-func-state
+  (lambda (f-name state)
+    (cond
+      ((null? state) state)
+      ((null? (name-list state)) (get-func-state f-name (prev-frame state)))
+      ((eq? (car (name-list state)) f-name) state)
+      (else (get-func-state f-name (cdr-state state))))))
+
+(define create-bindings
+  (lambda (formal-params actual-params cur-state new-state)
+    (if (null? formal-params) new-state
+        (create-bindings (cdr formal-params)
+                         (cdr actual-params)
+                         cur-state
+                         (add (car formal-params) (M_value (car actual-params) cur-state) new-state)))))
+
+(define func-exe
+  (lambda (funcall state)
+    (call/cc
+     (lambda (return)
+       (let* ((closure (getVar (car funcall)))
+              (body (car closure))
+              (formal-params (cadr closure))
+              (actual-params (cdr funcall))
+              (f-state-1 ((caddr closure) state))
+              (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1))))
+         (M_state body f-state-2 breakOutsideLoopError return continueOutsideLoopError return))))))
+              
 ; M_state: take a statement and a state, return the state after execute the statement on the state  
 (define M_state
   (lambda (stmt state break return continue throw)
     (cond
       [(null? stmt) state]
       [(pair? (operator stmt)) (M_state (remaining_stmts stmt) (M_state (first_stmt stmt) state break return continue throw) break return continue throw)]
+      [(eq? (operator stmt) 'function) (add (get-func-name stmt) (func-closure stmt) state)]
       [(eq? (operator stmt) 'var) (declare stmt state)]
       [(eq? (operator stmt) '=) (assign stmt state)]
       [(eq? (operator stmt) 'if) (if-stmt stmt state break return continue throw)]
@@ -231,6 +279,7 @@
       [(eq? expression 'false)#f]
       [(number? expression) expression]
       [(not (list? expression)) (getVar expression state)]
+      [(eq? (operator expression) 'funcall) (func-exe (cdr expression) state)]
       [(or (eq? (operator expression) '+) (eq? (operator expression) '-) (eq? (operator expression) '*) (eq? (operator expression) '/) (eq? (operator expression) '%))
        (M_integer expression state)]
       [else (M_boolean expression state)])))
@@ -302,3 +351,4 @@
 (define throw-stmt
   (lambda (stmt state throw)
     (throw (M_value (cadr stmt) state) state)))
+
