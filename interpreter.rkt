@@ -126,15 +126,18 @@
 ;; add: returns the state after adding new variable and its value
 (define add
   (lambda (var value state)
-    (cond
-      ((or (null? (name-list state)) (not (declared? var state)))   (cons (cons var (name-list state)) (list (cons value (val-list state)) (prev-frame state))))
-      ((declared? var state)         (add var value (remove var state))))))
+    (cons (cons var (name-list state)) (list (cons value (val-list state)) (prev-frame state)))))
+    ;(cond
+      ;((or (null? (name-list state)) (not (declared? var state)))   (cons (cons var (name-list state)) (list (cons value (val-list state)) (prev-frame state))))
+      ;((declared? var state)         (add var value (remove var state))))))
+      
 
 (define M_integer
   (lambda (expression state throw)
     (cond
       ((null? expression) 0)
       ((number? expression) expression)
+      ((eq? (operator expression) 'funcall) (func-exe (cdr expression) state throw))
       ((not (list? expression)) (getVar expression state))
       ((and (null? (cddr expression)) (eq? (operator expression) '+)) (+ 0 (M_value (leftoperand expression) state throw)))
       ((and (null? (cddr expression)) (eq? (operator expression) '-)) (- 0 (M_value (leftoperand expression) state throw)))
@@ -187,7 +190,7 @@
               (actual-params (cdr funcall))
               (f-state-1 ((caddr closure) state))
               (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1) throw)))
-         (M_state body f-state-2 breakOutsideLoopError (lambda (v) (return (car v))) continueOutsideLoopError throw))))))
+         (M_state body f-state-2 breakOutsideLoopError (lambda (v) (return (car v))) continueOutsideLoopError (lambda (v func-env) (throw v (update-state state (prev-frame func-env))))))))))
               
 ; M_state: take a statement and a state, return the state after execute the statement on the state  
 (define M_state
@@ -241,14 +244,15 @@
     (cond
       [(not (pair? exp)) state]
       [(eq? (operator exp) '=) (assign exp state throw)]
-      ((eq? (operator exp) 'funcall) (M_state_func exp state throw))
+      ((eq? (operator exp) 'funcall) (M_state_funcall_result_env (cdr exp) state throw))
       (else state))))
 (define update-state
   (lambda (state closure)
     (cond
       [(null? closure) state]
       [(null? (name-list closure)) (update-state state (prev-frame closure))]
-      [else (modify-state (car (name-list closure)) (car (val-list closure)) (update-state state (cdr-state closure)))]))) 
+      [else (modify-state (car (name-list closure)) (car (val-list closure)) (update-state state (cdr-state closure)))])))
+
 (define M_state_funcall_result_env
   (lambda (funcall state throw)
     (call/cc
