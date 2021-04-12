@@ -1,16 +1,26 @@
-var x = 0;
-var y = 0;
+function collatz(n) {
+  var counteven = 0;
+  var countodd = 0;
 
-function setx(a) {
-  x = a;
+  function evenstep(n) {
+    counteven = counteven + 1;
+    return n / 2;
+  }
+
+  function oddstep(n) {
+    countodd = countodd + 1;
+    return 3 * n + 1;
+  }
+
+  while (n != 1) {
+    if (n % 2 == 0)
+      n = evenstep(n);
+    else
+      n = oddstep(n);
+  }
+  return counteven + countodd;
 }
 
-function sety(b) {
-  y = b;
-}
 
 function main() {
-  setx(5);
-  sety(7);
-  return x * y;
-}
+  return collatz(111);

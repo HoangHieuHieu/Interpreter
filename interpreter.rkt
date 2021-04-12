@@ -243,7 +243,12 @@
       [(eq? (operator exp) '=) (assign exp state throw)]
       ((eq? (operator exp) 'funcall) (M_state_func exp state throw))
       (else state))))
-
+(define update-state
+  (lambda (state closure)
+    (cond
+      [(null? closure) state]
+      [(null? (name-list closure)) (update-state state (prev-frame closure))]
+      [else (modify-state (car (name-list closure)) (car (val-list closure)) (update-state state (cdr-state closure)))]))) 
 (define M_state_funcall_result_env
   (lambda (funcall state throw)
     (call/cc
@@ -254,7 +259,7 @@
               (actual-params (cdr funcall))
               (f-state-1 ((caddr closure) state))
               (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1) throw)))
-         (M_state body f-state-2 breakOutsideLoopError (lambda (v) (return (prev-frame (cadr v)))) continueOutsideLoopError throw))))))
+         (update-state state (M_state body f-state-2 breakOutsideLoopError (lambda (v) (return (update-state state (prev-frame (cadr v))))) continueOutsideLoopError throw)))))))
    
 ;; assign: binding a value to a variable
 (define assign
@@ -385,5 +390,5 @@
 ;; throw-stmt: take in the throw statement and call the throw continuation.
 (define throw-stmt
   (lambda (stmt state throw)
-    (throw (M_value (cadr stmt) state) state)))
+    (throw (M_value (cadr stmt) state throw) state)))
 
