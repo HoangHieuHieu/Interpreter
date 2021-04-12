@@ -127,11 +127,8 @@
 (define add
   (lambda (var value state)
     (cons (cons var (name-list state)) (list (cons value (val-list state)) (prev-frame state)))))
-    ;(cond
-      ;((or (null? (name-list state)) (not (declared? var state)))   (cons (cons var (name-list state)) (list (cons value (val-list state)) (prev-frame state))))
-      ;((declared? var state)         (add var value (remove var state))))))
-      
 
+;; denotational mapping of an expression to an integer
 (define M_integer
   (lambda (expression state throw)
     (cond
@@ -163,6 +160,7 @@
   (lambda (stmt)
     (list (get-func-body stmt) (get-func-formal-params stmt) (lambda (state) (get-func-state (get-func-name stmt) state)))))
 
+;; get the state from the function closure
 (define get-func-state
   (lambda (f-name state)
     (cond
@@ -171,15 +169,19 @@
       ((eq? (car (name-list state)) f-name) state)
       (else (get-func-state f-name (cdr-state state))))))
 
+;; bind the value of actual parameter to the formal parameter into the function state
 (define create-bindings
   (lambda (formal-params actual-params cur-state new-state throw)
-    (if (null? formal-params) new-state
-        (create-bindings (cdr formal-params)
-                         (cdr actual-params)
-                         cur-state
-                         (add (car formal-params) (M_value (car actual-params) cur-state throw) (M_state_exp (car actual-params) new-state throw))
-                         throw))))
+    (cond
+      ((or (and (null? formal-params) (not (null? actual-params))) (and (not (null? formal-params)) (null? actual-params))) (error 'Mismatched-parameters-and-arguments))
+      ((null? formal-params) new-state)
+      (else (create-bindings (cdr formal-params)
+                       (cdr actual-params)
+                       cur-state
+                       (add (car formal-params) (M_value (car actual-params) cur-state throw) (M_state_exp (car actual-params) new-state throw))
+                       throw)))))
 
+;; execute the function in main
 (define func-exe
   (lambda (funcall state throw)
     (call/cc
@@ -212,6 +214,7 @@
       [(eq? (operator stmt) 'throw) (throw-stmt stmt state throw)]
       [else (error 'stmt-not-defined)])))
 
+;; parsing global variable and function declaration to the global state
 (define M_state_func
   (lambda (stmt state throw)
     (cond
@@ -246,6 +249,8 @@
       [(eq? (operator exp) '=) (assign exp state throw)]
       ((eq? (operator exp) 'funcall) (M_state_funcall_result_env (cdr exp) state throw))
       (else state))))
+
+;; update the state according to the function environment
 (define update-state
   (lambda (state closure)
     (cond
@@ -253,6 +258,7 @@
       [(null? (name-list closure)) (update-state state (prev-frame closure))]
       [else (modify-state (car (name-list closure)) (car (val-list closure)) (update-state state (cdr-state closure)))])))
 
+;; return the state after executing a function call
 (define M_state_funcall_result_env
   (lambda (funcall state throw)
     (call/cc
@@ -290,7 +296,6 @@
 (define declare
   (lambda (stmt state throw)
     (cond
-      ;[(declared? (leftoperand stmt) state) (error 'used-variable)]
       [(null? (cddr stmt)) (add (leftoperand stmt) 'null state)]
       [else (add (leftoperand stmt) (M_value (rightoperand stmt) state throw) (M_state_exp (rightoperand stmt) state throw))])))
 
@@ -305,7 +310,6 @@
                                                           state))))
          (loop (condition stmt) (while-body stmt) state))))))
                              
-;; if: perform an if statement
 ;; if-stmt: perform an if statement
 (define if-stmt
   (lambda (stmt state break return continue throw)
