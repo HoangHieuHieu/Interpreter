@@ -399,4 +399,33 @@
 (define throw-stmt
   (lambda (stmt state throw)
     (throw (M_value (cadr stmt) state throw) state)))
+(define class-name cadr)
+(define super-class caddr)
+(define class-body cadddr)
+(define super-class-name cadr)
+
+(define class-closure
+  (lambda (stmt)
+    (let ((super (if (null? (super-class stmt))
+                    'null
+                    (super-class-name (super-class stmt))))
+          (body (class-body stmt)))
+      (cons super (interpret_class_body body '(()()()()))))))
+(define interpret_class_body
+   (lambda (body closure)
+     (let ((field-names car)
+           (field-inits cadr)
+           (method-name caddr)
+           (method-closures cadddr))
+       (cond
+         [(null? body) closure]
+         [(list? (operator body)) (interpret_class_body (car body) (interpret_class_body (cdr body) closure))]
+         [(eq? (operator body) 'var)
+          (if (null? (cddr body))
+              (list (cons (leftoperand body) (field-names closure)) (cons 'null (field-inits closure)) (method-name closure) (method-closures closure))
+              (list (cons (leftoperand body) (field-names closure)) (cons (rightoperand body) (field-inits closure)) (method-name closure) (method-closures closure)))]
+         [(eq? (operator body) 'function)(list (field-names closure) (field-inits closure) (cons (get-func-name body) (method-name closure)) (cons (func-closure body) (method-closures closure)))]))))
+
+ 
+
 
