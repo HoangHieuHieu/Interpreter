@@ -175,15 +175,17 @@
       ((eq? var (car (name-list state))) (car (val-list state)))
       (else (getVar var (cdr-state state))))))
 
-;;create function closure
+;; create function closure
 (define func-closure
   (lambda (stmt)
     (list (get-func-body stmt) (get-func-formal-params stmt) (lambda (state) (get-func-state (get-func-name stmt) state)))))
 
+;; create class method closure
 (define class-method-closure
   (lambda (stmt classname)
     (list (get-func-body stmt) (get-func-formal-params stmt) (lambda (state) (java-func-state state classname '() '()))  classname)))
 
+;; create running environent for java method
 (define java-func-state
   (lambda (state class-name l1 l2)
     (cond
@@ -306,12 +308,15 @@
               (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1) throw)))
          (update-state state (M-state body f-state-2 breakOutsideLoopError (lambda (v) (return (update-state state (prev-frame (cadr v))))) continueOutsideLoopError throw)))))))
 
+;; modify field list 
 (define modify-field-list
   (lambda (field-list position value)
     (cond
       [(null? field-list) (error 'invalid-field)]
       [(= position 0) (cons value (cdr field-list))]
       [else (cons (car field-list) (modify-field-list (cdr field-list) (- position 1) value))])))
+
+
 ;; assign: binding a value to a variable
 (define assign
   (lambda (stmt state throw compile-type this-object)
@@ -360,6 +365,8 @@
       [(null? (cddr stmt)) (add (leftoperand stmt) 'null state)]
       ;[else (add (leftoperand stmt) (M-value (rightoperand stmt) state throw compile-type this-object) (M-state-exp (rightoperand stmt) state throw))])))
       [else (add (leftoperand stmt) (M-value (rightoperand stmt) state throw compile-type this-object) state)])))
+
+
 ;; while-stmt: perform a while statement with break and continue
 (define while-stmt
   (lambda (stmt state return throw compile-type this-object)
@@ -379,6 +386,7 @@
       ((not (null? (if-body2 stmt))) (M-state (if-body2 stmt) state break return continue throw compile-type this-object))
       (else state))))
 
+;; get-field: to get the field
 (define get-field
   (lambda (field-list position)
     (cond
@@ -497,11 +505,15 @@
 (define throw-stmt
   (lambda (stmt state throw compile-type this-object)
     (throw (M-value (cadr stmt) state throw) state compile-type this-object)))
+
+;; define abstractions
 (define class-name cadr)
 (define super-class caddr)
 (define class-body cadddr)
 (define super-class-name cadr)
 
+
+;; create class closure
 (define class-closure
   (lambda (stmt state)
     (let* ((super (if (null? (super-class stmt))
@@ -513,6 +525,8 @@
           (body (class-body stmt)))
       (cons super (interpret-class-body body (cdr super-closure) (class-name stmt))))))
 
+
+;; helper to interpret class body 
 (define interpret-class-body
   (lambda (body closure classname)
     (let ((field-names car)
@@ -529,6 +543,7 @@
         [(eq? (operator body) 'function)(list (field-names closure) (field-inits closure) (cons (get-func-name body) (method-name closure)) (cons (class-method-closure body classname) (method-closures closure)))]
         [(eq? (operator body) 'static-function) (list (field-names closure) (field-inits closure) (cons (get-func-name body) (method-name closure)) (cons (class-method-closure body classname) (method-closures closure)))]))))
 
+;; interpret global classes 
 (define class-interpreter
   (lambda (stmt state)
     (cond
@@ -538,6 +553,7 @@
       ;[(eq? (operator stmt) 'var) (declare stmt state compile-type this-object)]
       [else (error 'invalid-stmt)])))
 
+;; get class with main function
 (define get-main-class
   (lambda (state)
     (cond
@@ -546,10 +562,11 @@
       ((have-main-func (get-func-list-from-closure (car (val-list state)))) (list (car (name-list state))(car (val-list state))))
       (else (get-main-class (cdr-state state))))))
        
+;; define abstractions
 (define get-func-list-from-closure cadddr)
-
 (define get-init-field-value caddr)
 
+;; checks if class have main function
 (define have-main-func
   (lambda (func-list)
     (cond
@@ -557,6 +574,8 @@
       ((eq? (car func-list) 'main) #t)
       (else (have-main-func (cdr func-list))))))
 
+
+;; create object closure
 (define create-object-closure
   (lambda (stmt state)
     (let* ((ob-class-name (leftoperand stmt))
@@ -564,6 +583,8 @@
            (init-field-value (reverse (get-init-field-value ob-class-closure))))
       (list ob-class-name init-field-value))))
 
+
+;; get class method closure
 (define get-class-method-closure
   (lambda (func-list closure-list name)
     (cond
@@ -571,11 +592,14 @@
       ((eq? (car func-list) name) (car closure-list))
       (else (get-class-method-closure (cdr func-list) (cdr closure-list) name)))))
 
+;; get function closures
 (define get-func-closures
   (lambda (closure)
     (car (cddddr closure))))
 
 (define get-super-class car)
+
+;; execute a method
 (define class-method-exe
   (lambda (funcall state throw this-object)
     (call/cc
@@ -610,6 +634,8 @@
                 (f-state-2 (add 'this this-object-closure f-state-1)))
          (M-state body f-state-2 breakOutsideLoopError (lambda (v) (return (car v))) continueOutsideLoopError (lambda (v func-env) (throw v (java-update-state state (prev-frame func-env) this-ob-name))) compile-type 'this))))))
 
+
+;; state after method execution
 (define M-state-java-funcall-result-env
   (lambda (funcall state throw this-object)
     (call/cc
@@ -645,12 +671,13 @@
          (java-update-state state
                             (M-state body f-state-2 breakOutsideLoopError (lambda (v) (return (car v))) continueOutsideLoopError (lambda (v func-env) (throw v (java-update-state state (prev-frame func-env) this-ob-name))) compile-type 'this)
                             this-ob-name))))))
-           
+;; update state       
 (define java-update-state
   (lambda (state env this-object-name)
     (let ((object-closure (getVar 'this env)))
       (modify-state this-object-name object-closure state))))
       
+;; execute static main function
 (define static-main-exe
   (lambda (name class state)
     (call/cc
@@ -664,17 +691,3 @@
          (M-state body f-state-1 breakOutsideLoopError (lambda (v) (return (car v))) continueOutsideLoopError uncaughtException class 'main-class))))))
 
     
-;(define M-state-funcall-result-env
-;  (lambda (funcall state throw)
-;    (call/cc
-;     (lambda (return)
-;       (let* ((closure (getVar (car funcall) state))
-;              (body (car closure))
-;              (formal-params (cadr closure))
-;              (actual-params (cdr funcall))
-;              (f-state-1 ((caddr closure) state))
-;              (f-state-2 (create-bindings formal-params actual-params state (add-frame f-state-1) throw)))
-;         (update-state state (M-state body f-state-2 breakOutsideLoopError (lambda (v) (return (update-state state (prev-frame (cadr v))))) continueOutsideLoopError throw)))))))
- 
-
-
