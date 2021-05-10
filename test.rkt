@@ -1,25 +1,38 @@
 class A {
-  var x = 6;
-  var y = 7;
+  var x = 1;
+  var y = 2;
 
-  function prod() {
-    return this.x * this.y;
+  function m() {
+    return this.m2();
   }
 
-  function set2(a, b) {
-    x = a;
-    y = b;
+  function m2() {
+    return x+y;
   }
 }
 
 class B extends A {
-  function set1(a) {
-    set2(a, a);
+  var y = 22;
+  var z = 3;
+
+  function m() {
+    return super.m();
   }
 
-  static function main () {
-    var b = new B();
-    b.set1(10);
-    return b.prod();
+  function m2() {
+    return x+y+z;
+  }
+}
+
+class C extends B {
+  var y = 222;
+  var w = 4;
+
+  function m() {
+    return super.m();
+  }
+
+  static function main() {
+    return new C().m();
   }
 }
